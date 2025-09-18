@@ -1,0 +1,11 @@
+<resources>
+    <!-- Sửa parent thành Theme.AppCompat -->
+    <style name="Theme.Ihavetofly" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Tùy chỉnh thêm nếu cần -->
+    </style>
+
+    <style name="AppTheme.noActionBar" parent="Theme.Ihavetofly">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
