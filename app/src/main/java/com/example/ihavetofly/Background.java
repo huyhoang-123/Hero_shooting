@@ -5,16 +5,20 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
 public class Background {
-
-    public int x, y;
+    public int x, y, speed;
     public Bitmap background;
 
     public Background(int screenX, int screenY, Resources res, int drawableId) {
-        // Decode và resize full màn hình
         Bitmap temp = BitmapFactory.decodeResource(res, drawableId);
-        background = Bitmap.createScaledBitmap(temp, screenX, screenY, false);
+
+        // Scale theo chiều cao để full màn, giữ nguyên tỉ lệ
+        float ratio = (float) screenY / temp.getHeight();
+        int newWidth = (int) (temp.getWidth() * ratio);
+
+        background = Bitmap.createScaledBitmap(temp, newWidth, screenY, false);
 
         x = 0;
         y = 0;
+        speed = 10; // tốc độ cuộn ngang
     }
 }

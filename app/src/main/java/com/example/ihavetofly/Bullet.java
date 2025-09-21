@@ -14,7 +14,7 @@ public class Bullet {
 
     Bullet(Resources res, int screenX, int screenY) {
         // load bitmap gốc
-        bullet = BitmapFactory.decodeResource(res, R.drawable.suriken);
+        bullet = BitmapFactory.decodeResource(res, R.drawable.bullet);
 
         // đặt kích thước phù hợp với màn hình
         width = screenX / 15;  // giảm nhỏ hơn một chút

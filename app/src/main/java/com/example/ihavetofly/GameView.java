@@ -40,6 +40,8 @@ public class GameView extends SurfaceView implements Runnable {
     private long lastShootTime = 0;
     private long shootInterval = 300; // 300ms giữa 2 viên đạn
 
+    public float cameraX = 0; // camera để cuộn background theo player (đổi từ private thành public)
+
     public GameView(GameActivity activity, int screenX, int screenY) {
         super(activity);
         this.activity = activity;
@@ -65,13 +67,9 @@ public class GameView extends SurfaceView implements Runnable {
         screenRatioX = 1920f / screenX;
         screenRatioY = 1080f / screenY;
 
-        // 🌌 2 nền để wrap-around
-        background1 = new Background(screenX, screenY, getResources(), R.drawable.background);
-        background2 = new Background(screenX, screenY, getResources(), R.drawable.background);
-        background1.x = 0;
-        background2.x = screenX;
-        background1.y = 0;
-        background2.y = 0;
+        // 🌌 Background (tile ngang)
+        background1 = new Background(screenX, screenY, getResources(), R.drawable.bg_space);
+        background2 = new Background(screenX, screenY, getResources(), R.drawable.bg_space);
 
         flight = new Flight(this, screenX, screenY, getResources());
         bullets = new ArrayList<>();
@@ -79,16 +77,14 @@ public class GameView extends SurfaceView implements Runnable {
         paint.setTextSize(96);
         paint.setColor(Color.WHITE);
 
-        // 🐦 Khởi tạo chim
-        birds = new Bird[3];
+        // 🐦 Khởi tạo chim nhiều hơn và rơi nhanh hơn
+        birds = new Bird[8];  // 8 chim
         random = new Random();
-        int spacing = screenY / 4; // khoảng cách Y giữa chim
+        int spacing = screenY / 8;  // giảm spacing để chim rơi dày hơn
         for (int i = 0; i < birds.length; i++) {
             birds[i] = new Bird(getResources());
-
-            birds[i].x = random.nextInt(screenX - birds[i].size);
-            birds[i].y = -birds[i].size - i * spacing; // cách nhau
-            birds[i].speed = random.nextInt((int)(8 * screenRatioY)) + (int)(5 * screenRatioY); // rơi nhanh hơn
+            respawnBird(birds[i]);
+            birds[i].y -= i * spacing;
         }
     }
 
@@ -102,14 +98,14 @@ public class GameView extends SurfaceView implements Runnable {
     }
 
     private void update() {
-        // 🌌 Cập nhật background
-        updateBackground();
-
         // ✈️ Cập nhật nhân vật
         flight.updatePosition();
 
-        // 🔫 Bắn tự động khi di chuyển
-        boolean moved = flight.movingLeft || flight.movingRight || flight.movingUp || flight.movingDown;
+        // 📷 Camera follow nhân vật để background di chuyển theo
+        cameraX = flight.x - screenX / 2f + flight.width / 2f;
+
+        // 🔫 Bắn tự động khi di chuyển (trái/phải)
+        boolean moved = flight.movingLeft || flight.movingRight;
         long now = System.currentTimeMillis();
         if (moved && now - lastShootTime >= shootInterval) {
             flight.toShoot++;
@@ -124,7 +120,7 @@ public class GameView extends SurfaceView implements Runnable {
 
             for (Bird bird : birds) {
                 if (Rect.intersects(bird.getCollisionShape(), bullet.getCollisionShape())) {
-                    score++; // ✅ tăng score khi bắn trúng chim
+                    score++;
                     respawnBird(bird);
                     bullet.y = -500;
                     bird.wasShot = true;
@@ -133,7 +129,7 @@ public class GameView extends SurfaceView implements Runnable {
         }
         bullets.removeAll(trash);
 
-        // 🐦 Cập nhật chim
+        // 🐦 Cập nhật chim (chim rơi nhanh hơn)
         for (Bird bird : birds) {
             bird.y += bird.speed;
 
@@ -141,7 +137,8 @@ public class GameView extends SurfaceView implements Runnable {
                 respawnBird(bird);
             }
 
-            if (Rect.intersects(bird.getCollisionShape(), flight.getCollisionShape())) {
+            if (Rect.intersects(bird.getCollisionShape(),
+                    new Rect(flight.x, flight.y, flight.x + flight.width, flight.y + flight.height))) {
                 isGameOver = true;
                 return;
             }
@@ -150,44 +147,16 @@ public class GameView extends SurfaceView implements Runnable {
 
     private void respawnBird(Bird bird) {
         bird.wasShot = false;
+
+        int marginX = 50; // khoảng cách từ mép màn hình
+        int minX = (int) cameraX + marginX;
+        int maxX = (int) (cameraX + screenX - bird.size - marginX);
+
+        bird.x = minX + random.nextInt(Math.max(1, maxX - minX));
         bird.y = -bird.size - random.nextInt(screenY / 4);
-        bird.x = random.nextInt(screenX - bird.size);
-        bird.speed = random.nextInt((int)(8 * screenRatioY)) + (int)(5 * screenRatioY);
-    }
 
-    private void updateBackground() {
-        int scrollX = (int)(5 * screenRatioX);
-        int scrollY = (int)(5 * screenRatioY);
-
-        if (flight.movingLeft) {
-            background1.x += scrollX;
-            background2.x += scrollX;
-        }
-        if (flight.movingRight) {
-            background1.x -= scrollX;
-            background2.x -= scrollX;
-        }
-
-        // Wrap-around ngang
-        if (background1.x + screenX <= 0) background1.x = background2.x + screenX;
-        else if (background1.x >= screenX) background1.x = background2.x - screenX;
-        if (background2.x + screenX <= 0) background2.x = background1.x + screenX;
-        else if (background2.x >= screenX) background2.x = background1.x - screenX;
-
-        // Di chuyển dọc nhưng không vượt quá chiều dài background
-        if (flight.movingUp) {
-            if (background1.y + scrollY <= 0 && background2.y + scrollY <= 0) {
-                background1.y += scrollY;
-                background2.y += scrollY;
-            }
-        }
-        if (flight.movingDown) {
-            if (background1.y - scrollY >= -background1.background.getHeight() + screenY
-                    && background2.y - scrollY >= -background2.background.getHeight() + screenY) {
-                background1.y -= scrollY;
-                background2.y -= scrollY;
-            }
-        }
+        // Tăng tốc độ bird
+        bird.speed = random.nextInt((int)(12 * screenRatioY)) + (int)(6 * screenRatioY); // nhanh hơn trước
     }
 
     private void draw() {
@@ -196,14 +165,23 @@ public class GameView extends SurfaceView implements Runnable {
         Canvas canvas = getHolder().lockCanvas();
         canvas.drawColor(Color.BLACK);
 
-        canvas.drawBitmap(background1.background, background1.x, background1.y, paint);
-        canvas.drawBitmap(background2.background, background2.x, background2.y, paint);
+        // Vẽ background (tile ngang lặp vô hạn)
+        int bgWidth = background1.background.getWidth();
+        int startX = (int)(-cameraX % bgWidth);
+        if (startX > 0) startX -= bgWidth;
 
-        canvas.drawBitmap(flight.getFlight(), flight.x, flight.y, paint);
+        for (int x = startX; x < screenX; x += bgWidth) {
+            canvas.drawBitmap(background1.background, x, 0, paint);
+        }
+
+        // Vẽ player (luôn ở giữa màn hình, background di chuyển theo)
+        canvas.drawBitmap(flight.getFlight(), screenX / 2f - flight.width / 2f, flight.y, paint);
+
+        // Vẽ điểm
         canvas.drawText(score + "", screenX / 2f, 128, paint);
 
         if (isGameOver) {
-            canvas.drawBitmap(flight.getDead(), flight.x, flight.y, paint);
+            canvas.drawBitmap(flight.getDead(), screenX / 2f - flight.width / 2f, flight.y, paint);
             getHolder().unlockCanvasAndPost(canvas);
             saveIfHighScore();
             waitBeforeExiting();
@@ -212,12 +190,12 @@ public class GameView extends SurfaceView implements Runnable {
 
         // Vẽ chim
         for (Bird bird : birds) {
-            canvas.drawBitmap(bird.getBird(), bird.x, bird.y, paint);
+            canvas.drawBitmap(bird.getBird(), bird.x - cameraX, bird.y, paint);
         }
 
         // Vẽ đạn
         for (Bullet bullet : bullets) {
-            canvas.drawBitmap(bullet.bullet, bullet.x, bullet.y, paint);
+            canvas.drawBitmap(bullet.bullet, bullet.x - cameraX, bullet.y, paint);
         }
 
         getHolder().unlockCanvasAndPost(canvas);
@@ -226,22 +204,22 @@ public class GameView extends SurfaceView implements Runnable {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         float x = event.getX();
-        float y = event.getY();
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_MOVE:
-                flight.movingLeft = x < screenX / 2;
-                flight.movingRight = x >= screenX / 2;
-                flight.movingUp = y < screenY / 2;
-                flight.movingDown = y >= screenY / 2;
+                if (x < screenX / 2f) {
+                    flight.movingLeft = true;
+                    flight.movingRight = false;
+                } else {
+                    flight.movingRight = true;
+                    flight.movingLeft = false;
+                }
                 break;
 
             case MotionEvent.ACTION_UP:
                 flight.movingLeft = false;
                 flight.movingRight = false;
-                flight.movingUp = false;
-                flight.movingDown = false;
                 break;
         }
         return true;
