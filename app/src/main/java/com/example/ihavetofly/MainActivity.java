@@ -11,50 +11,68 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
-    private  boolean isMute ;
+    private boolean isMusicMuted;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Kết nối với layout activity_main.xml
-
         setContentView(R.layout.activity_main);
 
+        // Play button
         findViewById(R.id.play).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(MainActivity.this, GameActivity.class));
             }
-
         });
+
+        // Setup high score display
         TextView highscore = findViewById(R.id.highScoreTxt);
         SharedPreferences prefs = getSharedPreferences("game", MODE_PRIVATE);
         highscore.setText("Highscore: " + prefs.getInt("highscore", 0));
-        isMute = prefs.getBoolean("isMute",false);
 
-        ImageView volume = findViewById(R.id.volumeCtrl);
+        // Get music mute status - CHỈ đọc từ SharedPreferences
+        isMusicMuted = prefs.getBoolean("isMusicMute", false);
+
+        // Setup volume control button
         final ImageView volumeCtrl = findViewById(R.id.volumeCtrl);
+        updateVolumeIcon(volumeCtrl);
 
-        if(isMute){
-            volumeCtrl.setImageResource(R.drawable.mute);
-        }
-        else{
-            volumeCtrl.setImageResource(R.drawable.baseline_volume_up_24);
-        }
         volumeCtrl.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                isMute = !isMute;
-                if(isMute){
-                    volumeCtrl.setImageResource(R.drawable.mute);
-                }
-                else{
-                    volumeCtrl.setImageResource(R.drawable.baseline_volume_up_24);
-                }
+                // Toggle CHINHỈ nhạc nền
+                isMusicMuted = !isMusicMuted;
+
+                android.util.Log.d("MainActivity", "ONLY Music button clicked. isMusicMuted: " + isMusicMuted);
+
+                // Lưu vào SharedPreferences
+                SharedPreferences prefs = getSharedPreferences("game", MODE_PRIVATE);
                 SharedPreferences.Editor editor = prefs.edit();
-                editor.putBoolean("isMute", isMute);
+                editor.putBoolean("isMusicMute", isMusicMuted);
                 editor.apply();
+
+                updateVolumeIcon(volumeCtrl);
             }
         });
+    }
+
+    private void updateVolumeIcon(ImageView volumeCtrl) {
+        if (isMusicMuted) {
+            volumeCtrl.setImageResource(R.drawable.volume_speaker); // mute icon
+        } else {
+            volumeCtrl.setImageResource(R.drawable.speaker_high_volume); // volume on icon
+        }
+        android.util.Log.d("MainActivity", "Icon updated. isMusicMuted: " + isMusicMuted);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Update UI
+        SharedPreferences prefs = getSharedPreferences("game", MODE_PRIVATE);
+        isMusicMuted = prefs.getBoolean("isMusicMute", false);
+        ImageView volumeCtrl = findViewById(R.id.volumeCtrl);
+        updateVolumeIcon(volumeCtrl);
     }
 }
