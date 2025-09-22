@@ -9,8 +9,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 
 public class Flight {
-    public boolean isGoingUp = false;
-    public int toShoot = 0;
     public int x, y, width, height;
     private GameView gameView;
     private Bitmap flightBitmap;
@@ -18,14 +16,13 @@ public class Flight {
 
     public boolean movingLeft = false;
     public boolean movingRight = false;
-
+    public int toShoot = 0;
     public int speed;
 
-    Flight(GameView gameView, int screenX, int screenY, Resources res) {
+    Flight(GameView gameView, Resources res, int screenX, int screenY) {
         this.gameView = gameView;
 
         Bitmap temp = BitmapFactory.decodeResource(res, R.drawable.space_ships);
-
         float scaleFactor = 0.35f;
         float ratio = (float) temp.getHeight() / temp.getWidth();
 
@@ -35,27 +32,25 @@ public class Flight {
         flightBitmap = Bitmap.createScaledBitmap(temp, width, height, false);
         deadBitmap = flightBitmap;
 
-        // vị trí xuất phát
         x = screenX / 2 - width / 2;
         y = screenY - height - 50;
 
-        speed = Math.max(2, (int)(10 * screenRatioX)); // giảm tốc độ di chuyển
+        speed = Math.max(2, (int)(10 * screenRatioX));
     }
 
-    public void updatePosition() {
+    public void updatePosition(int bgWidth) {
         if (movingLeft) {
             x -= speed;
-            // Không có giới hạn vì background sẽ di chuyển theo
+            if (x < 0) x = 0;
         }
-
         if (movingRight) {
             x += speed;
-            // Không có giới hạn vì background sẽ di chuyển theo
+            if (x + width > bgWidth) x = bgWidth - width;
         }
     }
 
     public Bitmap getFlight() {
-        if(toShoot != 0) {
+        if (toShoot != 0) {
             toShoot--;
             gameView.newBullet();
         }
