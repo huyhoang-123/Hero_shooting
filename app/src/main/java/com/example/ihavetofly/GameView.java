@@ -1,8 +1,9 @@
 package com.example.ihavetofly;
 
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -29,66 +30,69 @@ public class GameView extends SurfaceView implements Runnable {
     private SharedPreferences prefs;
     private Random random;
     private Paint paint;
-    private Paint scorePaint; // Paint riêng cho score
+    private Paint scorePaint;
     private Flight flight;
     private GameActivity activity;
     private int score = 0;
 
-    // Audio and UI components
     private GameAudioManager audioManager;
     private VolumeButton volumeButton;
 
     private long lastShootTime = 0;
-    private static final long SHOOT_INTERVAL = 200; // Giảm interval
+    private static final long SHOOT_INTERVAL = 200; // ms
     private static final int TARGET_FPS = 60;
     private static final long FRAME_TIME = 1000 / TARGET_FPS;
 
     public float cameraX = 0;
     private Background background;
-    private static final int MAX_BULLETS = 15; // Giảm số bullet tối đa
+    private static final int MAX_BULLETS = 15;
 
-    // Cache objects để tránh GC
     private final Rect tempRect = new Rect();
     private long lastFrameTime = 0;
+
+    private Bitmap gameOverBitmap;
+    private Rect exitButtonRect;
+    private Paint gameOverTextPaint;
+    private Paint exitButtonPaint;
 
     public GameView(GameActivity activity, int screenX, int screenY) {
         super(activity);
         this.activity = activity;
-        prefs = activity.getSharedPreferences("game", Context.MODE_PRIVATE);
+        prefs = activity.getSharedPreferences("game", GameActivity.MODE_PRIVATE);
 
-        // Initialize audio manager
         audioManager = GameAudioManager.getInstance(activity);
+        audioManager.prepare(); // preload nhạc + sound effects
+        audioManager.playBackground(); // Bắt đầu chạy background music ngay lập tức
 
         this.screenX = screenX;
         this.screenY = screenY;
+
         screenRatioX = 1920f / screenX;
         screenRatioY = 1080f / screenY;
 
         background = new Background(getResources(), R.drawable.background, screenY);
-        flight = new Flight(this, getResources(), screenX, screenY);
+        flight = new Flight(this, screenY, getResources());
 
-        // Initialize volume button
+        // Load game over bitmap (ship bloom)
+        Bitmap tmp = BitmapFactory.decodeResource(getResources(), R.drawable.space_ship_bloom);
+        gameOverBitmap = Bitmap.createScaledBitmap(tmp, flight.width, flight.height, true);
+        if(tmp != gameOverBitmap) tmp.recycle();
+
         volumeButton = new VolumeButton(activity, screenX, screenY);
 
-        // Sử dụng ArrayList với capacity cố định
         bullets = new ArrayList<>(MAX_BULLETS);
-
-        // Khởi tạo Random trước khi dùng
         random = new Random();
 
-        // Tối ưu Paint objects
         initPaints();
-
-        // Tối ưu birds array
         initBirds();
+        initGameOverUI();
 
-        // Tối ưu SurfaceHolder
         getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
-            public void surfaceCreated(SurfaceHolder holder) {}
+            public void surfaceCreated(SurfaceHolder holder) { }
 
             @Override
-            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
+            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) { }
 
             @Override
             public void surfaceDestroyed(SurfaceHolder holder) {
@@ -97,21 +101,19 @@ public class GameView extends SurfaceView implements Runnable {
         });
     }
 
-    // Remove the initSoundPool method since we're using AudioManager now
-
     private void initPaints() {
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setFilterBitmap(true); // Smooth scaling
+        paint.setFilterBitmap(true);
 
         scorePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        scorePaint.setTextSize(screenY * 0.08f); // Responsive text size
+        scorePaint.setTextSize(screenY * 0.06f);
         scorePaint.setColor(Color.WHITE);
         scorePaint.setTextAlign(Paint.Align.CENTER);
-        scorePaint.setShadowLayer(4, 2, 2, Color.BLACK); // Text shadow
+        scorePaint.setShadowLayer(4, 2, 2, Color.BLACK);
     }
 
     private void initBirds() {
-        birds = new Bird[6]; // Giảm số birds
+        birds = new Bird[6];
         int spacing = screenY / 6;
         for (int i = 0; i < birds.length; i++) {
             birds[i] = new Bird(getResources());
@@ -120,25 +122,33 @@ public class GameView extends SurfaceView implements Runnable {
         }
     }
 
+    private void initGameOverUI() {
+        gameOverTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        gameOverTextPaint.setColor(Color.WHITE);
+        gameOverTextPaint.setTextAlign(Paint.Align.CENTER);
+        gameOverTextPaint.setShadowLayer(6, 2, 2, Color.BLACK);
+
+        exitButtonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        exitButtonPaint.setColor(Color.rgb(200, 60, 60));
+
+        int btnW = (int) (screenX * 0.45f);
+        int btnH = (int) (screenY * 0.10f);
+        int left = screenX / 2 - btnW / 2;
+        int top = (int) (screenY * 0.62f);
+        exitButtonRect = new Rect(left, top, left + btnW, top + btnH);
+    }
+
     @Override
     public void run() {
         lastFrameTime = System.currentTimeMillis();
-
         while (isPlaying) {
             long startTime = System.currentTimeMillis();
-
             update();
             draw();
-
-            // Tối ưu frame rate
             long frameTime = System.currentTimeMillis() - startTime;
             if (frameTime < FRAME_TIME) {
-                try {
-                    Thread.sleep(FRAME_TIME - frameTime);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+                try { Thread.sleep(FRAME_TIME - frameTime); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); break; }
             }
         }
     }
@@ -150,22 +160,12 @@ public class GameView extends SurfaceView implements Runnable {
         float deltaTime = (currentTime - lastFrameTime) / 1000f;
         lastFrameTime = currentTime;
 
-        // Update volume button
-        volumeButton.update();
+        if (volumeButton != null) volumeButton.draw(null);
 
-        // Update flight position
         flight.updatePosition(background.background.getWidth());
-
-        // Update camera với smooth follow
         updateCamera();
-
-        // Auto shoot khi di chuyển
         handleAutoShoot(currentTime);
-
-        // Update bullets với Iterator để tránh ConcurrentModificationException
-        updateBullets();
-
-        // Update birds
+        updateBullets(deltaTime);
         updateBirds();
     }
 
@@ -173,45 +173,43 @@ public class GameView extends SurfaceView implements Runnable {
         float centerStart = screenX / 2f;
         float targetCameraX;
 
-        if (flight.x < centerStart) {
-            targetCameraX = 0;
-        } else if (flight.x + flight.width > background.background.getWidth() - centerStart) {
+        if (flight.x < centerStart) targetCameraX = 0;
+        else if (flight.x + flight.width > background.background.getWidth() - centerStart)
             targetCameraX = background.background.getWidth() - screenX;
-        } else {
-            targetCameraX = flight.x - centerStart + flight.width / 2f;
-        }
+        else targetCameraX = flight.x - centerStart + flight.width / 2f;
 
-        // Smooth camera follow
         cameraX += (targetCameraX - cameraX) * 0.1f;
     }
 
     private void handleAutoShoot(long currentTime) {
-        boolean moved = flight.movingLeft || flight.movingRight;
-        if (moved && currentTime - lastShootTime >= SHOOT_INTERVAL && bullets.size() < MAX_BULLETS) {
-            flight.toShoot = 1;
+        // Chỉ bắn khi đang di chuyển trái/phải
+        boolean isMoving = flight.movingLeft || flight.movingRight;
+        if (isMoving && currentTime - lastShootTime >= SHOOT_INTERVAL && bullets.size() < MAX_BULLETS) {
+            newBullet();
             lastShootTime = currentTime;
         }
     }
 
-    private void updateBullets() {
-        Iterator<Bullet> bulletIterator = bullets.iterator();
-        while (bulletIterator.hasNext()) {
-            Bullet bullet = bulletIterator.next();
+    private void updateBullets(float deltaTime) {
+        if (bullets.isEmpty()) return;
+
+        Iterator<Bullet> it = bullets.iterator();
+        while (it.hasNext()) {
+            Bullet bullet = it.next();
             bullet.y -= bullet.speed;
 
             if (bullet.y < -bullet.height) {
-                bulletIterator.remove();
+                it.remove();
                 continue;
             }
 
-            // Check collision với birds
             Rect bulletRect = bullet.getCollisionShape();
             for (Bird bird : birds) {
                 if (!bird.wasShot && Rect.intersects(bird.getCollisionShape(), bulletRect)) {
                     score++;
                     respawnBird(bird);
                     bird.wasShot = true;
-                    bulletIterator.remove();
+                    it.remove();
                     break;
                 }
             }
@@ -223,14 +221,14 @@ public class GameView extends SurfaceView implements Runnable {
 
         for (Bird bird : birds) {
             bird.y += bird.speed;
+            bird.updateFrame(); // mỗi lần update, frame thay đổi → tạo cánh flapping
 
-            if (bird.y > screenY || bird.wasShot) {
+            if (bird.y > screenY || bird.wasShot)
                 respawnBird(bird);
-            }
 
-            if (!isGameOver && !bird.wasShot &&
-                    Rect.intersects(bird.getCollisionShape(), tempRect)) {
+            if (!isGameOver && !bird.wasShot && Rect.intersects(bird.getCollisionShape(), tempRect)) {
                 isGameOver = true;
+                saveIfHighScore();
                 return;
             }
         }
@@ -238,202 +236,114 @@ public class GameView extends SurfaceView implements Runnable {
 
     private void respawnBird(Bird bird) {
         bird.wasShot = false;
-        int marginX = bird.size;
-        int visibleWidth = Math.max(screenX, bird.size * 2);
+        bird.y = -bird.height - random.nextInt(screenY / 3);
 
-        int minX = Math.max(0, (int) cameraX + marginX);
-        int maxX = Math.min(background.background.getWidth() - bird.size,
-                (int) (cameraX + visibleWidth - marginX));
+        int range = screenX / 4;
+        int spawnX = flight.x + random.nextInt(range * 2) - range;
+        spawnX = Math.max(0, Math.min(spawnX, screenX - bird.width));
+        bird.x = spawnX;
 
-        if (maxX > minX) {
-            bird.x = minX + random.nextInt(maxX - minX);
-        } else {
-            bird.x = minX;
-        }
+        int baseSpeed = 10;
+        int extraSpeed = random.nextInt(10);
+        bird.speed = (int)(baseSpeed*screenRatioY) + extraSpeed;
 
-        bird.y = -bird.size - random.nextInt(screenY / 3);
-        bird.speed = random.nextInt(Math.max(1, (int)(8 * screenRatioY))) +
-                Math.max(1, (int)(4 * screenRatioY));
+        if (Math.abs(bird.x - flight.x) < flight.width)
+            bird.speed = (int)(bird.speed*1.5f);
     }
 
     private void draw() {
         if (!getHolder().getSurface().isValid()) return;
-
         Canvas canvas = getHolder().lockCanvas();
         if (canvas == null) return;
 
         try {
-            // Clear với black
             canvas.drawColor(Color.BLACK);
+            if(background!=null && background.background!=null)
+                canvas.drawBitmap(background.background,-cameraX,0,paint);
 
-            // Draw background
-            canvas.drawBitmap(background.background, -cameraX, 0, paint);
+            if(!isGameOver){
+                if(flight!=null && flight.getFlight()!=null)
+                    canvas.drawBitmap(flight.getFlight(), flight.x - cameraX, flight.y, paint);
 
-            if (!isGameOver) {
-                // Draw flight
-                canvas.drawBitmap(flight.getFlight(), flight.x - cameraX, flight.y, paint);
-
-                // Draw birds
-                for (Bird bird : birds) {
-                    if (!bird.wasShot) {
+                for(Bird bird: birds)
+                    if(!bird.wasShot && bird.getBird()!=null)
                         canvas.drawBitmap(bird.getBird(), bird.x - cameraX, bird.y, paint);
-                    }
-                }
 
-                // Draw bullets
-                for (Bullet bullet : bullets) {
-                    canvas.drawBitmap(bullet.bullet, bullet.x - cameraX, bullet.y, paint);
-                }
-            } else {
-                // Draw dead flight
-                canvas.drawBitmap(flight.getDead(), flight.x - cameraX, flight.y, paint);
+                for(Bullet bullet: bullets)
+                    if(bullet.bullet!=null) canvas.drawBitmap(bullet.bullet, bullet.x - cameraX, bullet.y, paint);
+
+                canvas.drawText(String.valueOf(score), screenX/2f, screenY*0.08f, scorePaint);
+            }
+            else{
+                canvas.drawBitmap(gameOverBitmap, flight.x - cameraX, flight.y, paint);
+                gameOverTextPaint.setTextSize(screenY*0.06f);
+                canvas.drawText("GAME OVER", screenX/2f, screenY*0.45f, gameOverTextPaint);
+                gameOverTextPaint.setTextSize(screenY*0.06f);
+                canvas.drawText("Score: "+score, screenX/2f, screenY*0.52f, gameOverTextPaint);
+                canvas.drawRect(exitButtonRect, exitButtonPaint);
+                gameOverTextPaint.setTextSize(screenY*0.05f);
+                canvas.drawText("EXIT", exitButtonRect.centerX(),
+                        exitButtonRect.centerY() + (gameOverTextPaint.getTextSize()/3f), gameOverTextPaint);
             }
 
-            // Draw score
-            canvas.drawText(String.valueOf(score), screenX / 2f, screenY * 0.1f, scorePaint);
-
-            // Draw volume button - cố định trên màn hình
-            volumeButton.draw(canvas);
-            android.util.Log.d("GameView", "Volume button drawn");
+            if(volumeButton!=null) volumeButton.draw(canvas);
 
         } finally {
-            getHolder().unlockCanvasAndPost(canvas);
+            try{ getHolder().unlockCanvasAndPost(canvas); }catch(Exception ignored){}
         }
-
-        if (isGameOver) {
-            handleGameOver();
-        }
-    }
-
-    private void handleGameOver() {
-        saveIfHighScore();
-        cleanup();
-
-        // Delay trước khi thoát
-        new Thread(() -> {
-            try {
-                Thread.sleep(2000);
-                activity.runOnUiThread(() -> {
-                    activity.startActivity(new Intent(activity, MainActivity.class));
-                    activity.finish();
-                });
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }).start();
     }
 
     @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        if (isGameOver) return false;
-
+    public boolean onTouchEvent(MotionEvent event){
         float x = event.getX();
         float y = event.getY();
-        int action = event.getAction();
 
-        // Check volume button first - không cần cameraX
-        if (volumeButton.handleTouch(x, y, action)) {
-            android.util.Log.d("GameView", "Volume button handled touch");
-            return true; // Volume button handled the touch
-        }
-
-        android.util.Log.d("GameView", "Touch not handled by volume button, handling flight movement");
-
-        // Handle flight movement
-        switch (action) {
+        switch(event.getAction()){
             case MotionEvent.ACTION_DOWN:
-            case MotionEvent.ACTION_MOVE:
-                if (x < screenX / 2f) {
-                    flight.movingLeft = true;
-                    flight.movingRight = false;
-                } else {
-                    flight.movingRight = true;
-                    flight.movingLeft = false;
+                if(volumeButton!=null && volumeButton.handleTouch(x,y)){
+                    audioManager.setAllMuted(volumeButton.isSfxMuted());
+                    audioManager.setMusicMuted(volumeButton.isMusicMuted());
+                    return true;
                 }
+
+                if(isGameOver && exitButtonRect.contains((int)x,(int)y)){
+                    activity.finish();
+                    return true;
+                }
+
+                if(x<screenX/2f) flight.movingLeft=true;
+                else flight.movingRight=true;
                 break;
+
             case MotionEvent.ACTION_UP:
-                flight.movingLeft = false;
-                flight.movingRight = false;
+                flight.movingLeft=false;
+                flight.movingRight=false;
                 break;
         }
         return true;
     }
 
-    public void newBullet() {
-        if (bullets.size() >= MAX_BULLETS) return;
+    private void saveIfHighScore(){
+        int prevHigh = prefs.getInt("highscore",0);
+        if(score>prevHigh) prefs.edit().putInt("highscore",score).apply();
+    }
 
-        // Play shoot sound through audio manager
-        audioManager.playShootSound();
-
-        Bullet bullet = new Bullet(getResources(), screenX, screenY);
-        bullet.x = flight.x + flight.width / 2 - bullet.width / 2;
-        bullet.y = flight.y;
+    private void newBullet(){
+        if(volumeButton.isSfxMuted()) return;
+        Bullet bullet = new Bullet(getResources(), flight.x + flight.width/2, flight.y, flight.width);
         bullets.add(bullet);
+        audioManager.playShootSound();
     }
 
-    private void saveIfHighScore() {
-        if (prefs.getInt("highscore", 0) < score) {
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.putInt("highscore", score);
-            editor.apply();
-        }
+    public void cleanup(){
+        isPlaying=false;
+        audioManager.release();
     }
 
-    public void resume() {
-        isPlaying = true;
-        isGameOver = false;
-
-        // Start background music
-        audioManager.startBackgroundMusic();
-
+    public void pause(){ isPlaying=false; }
+    public void resume(){
+        isPlaying=true;
         thread = new Thread(this);
         thread.start();
-    }
-
-    public void pause() {
-        isPlaying = false;
-
-        // Pause background music
-        audioManager.pauseBackgroundMusic();
-
-        if (thread != null) {
-            try {
-                thread.join(1000); // Timeout 1 giây
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
-    }
-
-    private void cleanup() {
-        // Cleanup audio
-        if (audioManager != null) {
-            audioManager.cleanup();
-        }
-
-        // Cleanup volume button
-        if (volumeButton != null) {
-            volumeButton.cleanup();
-        }
-
-        // Clear bullets
-        bullets.clear();
-
-        // Cleanup static cached bitmaps
-        Bullet.recycleCachedBitmap();
-
-        // Cleanup background
-        if (background != null) {
-            background.recycle();
-        }
-
-        // Cleanup birds
-        if (birds != null) {
-            for (Bird bird : birds) {
-                if (bird != null) {
-                    bird.recycle();
-                }
-            }
-        }
     }
 }

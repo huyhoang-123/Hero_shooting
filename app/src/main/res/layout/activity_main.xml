@@ -8,23 +8,23 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="centerCrop"
-        android:src="@drawable/bg_space" />
+        android:src="@drawable/bg_starwar" />
 
     <!-- Tiêu đề game -->
-    <TextView
-        android:id="@+id/titleTxt"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Herro Attack"
-        android:textSize="36sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:shadowColor="#80000000"
-        android:shadowDx="2"
-        android:shadowDy="2"
-        android:shadowRadius="4"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="60dp" />
+<!--    <TextView-->
+<!--        android:id="@+id/titleTxt"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:text="Star war"-->
+<!--        android:textSize="36sp"-->
+<!--        android:textStyle="bold"-->
+<!--        android:textColor="#FFFFFF"-->
+<!--        android:shadowColor="#80000000"-->
+<!--        android:shadowDx="2"-->
+<!--        android:shadowDy="2"-->
+<!--        android:shadowRadius="4"-->
+<!--        android:layout_centerHorizontal="true"-->
+<!--        android:layout_marginTop="60dp" />-->
 
     <!-- Nút Play ở giữa màn hình -->
     <Button
@@ -54,12 +54,12 @@
         android:layout_margin="16dp" />
 
     <!-- Nút âm lượng -->
-    <ImageView
-        android:id="@+id/volumeCtrl"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="16dp"
-        android:src="@drawable/baseline_volume_up_24" />
+<!--    <ImageView-->
+<!--        android:id="@+id/volumeCtrl"-->
+<!--        android:layout_width="40dp"-->
+<!--        android:layout_height="40dp"-->
+<!--        android:layout_alignParentBottom="true"-->
+<!--        android:layout_margin="16dp"-->
+<!--        android:src="@drawable/baseline_volume_up_24" />-->
 
 </RelativeLayout>

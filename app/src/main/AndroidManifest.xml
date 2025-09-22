@@ -11,12 +11,14 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Ihavetofly"
+        android:attributionTags="com.example.ihavetofly"
         tools:targetApi="31">
+
         <activity
             android:name=".GameActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.Ihavetofly"/>
+            android:theme="@style/Theme.Ihavetofly" />
 
         <activity
             android:name=".MainActivity"
@@ -30,6 +32,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
     </application>
 
 </manifest>
