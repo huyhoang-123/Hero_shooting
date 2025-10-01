@@ -37,4 +37,7 @@ public class GameActivity extends AppCompatActivity {
         super.onPause();
         if (gameView != null) gameView.pause();
     }
+
+    // ❌ KHÔNG clear cache ở đây nữa
+    // Android sẽ tự giải phóng bộ nhớ khi app bị kill
 }

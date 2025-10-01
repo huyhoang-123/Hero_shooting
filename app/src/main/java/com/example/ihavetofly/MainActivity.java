@@ -2,8 +2,6 @@ package com.example.ihavetofly;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.widget.TextView;
 
@@ -26,27 +24,26 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences("game", MODE_PRIVATE);
         highscore.setText("Highscore: " + prefs.getInt("highscore", 0));
 
-        // Preload bitmap nhẹ
+        // Preload bitmap nhẹ (bây giờ thực sự cache, không recycle ngay)
         preloadBitmaps();
     }
 
     private void preloadBitmaps() {
-        BitmapFactory.Options opts = new BitmapFactory.Options();
-        opts.inPreferredConfig = Bitmap.Config.RGB_565;
-        opts.inSampleSize = 2;
-
         int[] ids = new int[]{
                 R.drawable.background,
                 R.drawable.space_ships,
                 R.drawable.bird1,
+                R.drawable.bird2,
+                R.drawable.bird3,
+                R.drawable.bomb_4,
                 R.drawable.bullet,
                 R.drawable.speaker_high_volume,
                 R.drawable.volume_speaker
         };
 
         for (int id : ids) {
-            Bitmap b = BitmapFactory.decodeResource(getResources(), id, opts);
-            if (b != null) b.recycle();
+            // sampleSize = 2 (giảm resolution khi preload) -> nhanh & ít tốn RAM
+            BitmapCache.get(getResources(), id, 2);
         }
     }
 }

@@ -166,15 +166,18 @@ public class GameView extends SurfaceView implements Runnable {
 
         long currentTime = System.currentTimeMillis();
         float deltaTime = (currentTime - lastFrameTime) / 1000f;
+        if (deltaTime <= 0f) deltaTime = 1f / 60f;
         lastFrameTime = currentTime;
 
-        if (volumeButton != null) volumeButton.draw(null);
+        // Không gọi volumeButton.draw(null) ở đây nữa (chỉ vẽ trong draw())
 
-        flight.updatePosition(background.background.getWidth());
+        // Cập nhật flight với deltaTime (đã đổi trong Flight)
+        flight.updatePosition(background.background.getWidth(), deltaTime);
+
         updateCamera();
         handleAutoShoot(currentTime);
         updateBullets(deltaTime);
-        updateBirds();
+        updateBirds(deltaTime);
         updateBomb(currentTime, deltaTime);
     }
 
@@ -204,7 +207,8 @@ public class GameView extends SurfaceView implements Runnable {
         Iterator<Bullet> it = bullets.iterator();
         while (it.hasNext()) {
             Bullet bullet = it.next();
-            bullet.y -= bullet.speed;
+            // di chuyển theo pixels/second * deltaTime
+            bullet.y -= (int)(bullet.speed * deltaTime);
 
             if (bullet.y < -bullet.height) {
                 it.remove();
@@ -224,11 +228,12 @@ public class GameView extends SurfaceView implements Runnable {
         }
     }
 
-    private void updateBirds() {
+    private void updateBirds(float deltaTime) {
         tempRect.set(flight.x, flight.y, flight.x + flight.width, flight.y + flight.height);
 
         for (Bird bird : birds) {
-            bird.y += bird.speed;
+            // di chuyển theo speed (đã set là pixels/second trong respawnBird)
+            bird.y += (int)(bird.speed * deltaTime);
             bird.updateFrame();
 
             if (bird.y > screenY || bird.wasShot)
@@ -251,9 +256,9 @@ public class GameView extends SurfaceView implements Runnable {
         spawnX = Math.max(0, Math.min(spawnX, screenX - bird.width));
         bird.x = spawnX;
 
-        int baseSpeed = 10;
-        int extraSpeed = random.nextInt(10);
-        bird.speed = (int)(baseSpeed*screenRatioY) + extraSpeed;
+        int baseSpeed = 200; // pixels/second base
+        int extraSpeed = random.nextInt(150);
+        bird.speed = (int)((baseSpeed + extraSpeed) * screenRatioY);
 
         if (Math.abs(bird.x - flight.x) < flight.width)
             bird.speed = (int)(bird.speed*1.5f);
@@ -370,7 +375,7 @@ public class GameView extends SurfaceView implements Runnable {
     }
 
     private void newBullet(){
-        if(volumeButton.isSfxMuted()) return;
+        if(volumeButton != null && volumeButton.isSfxMuted()) return;
         Bullet bullet = new Bullet(getResources(), flight.x + flight.width/2, flight.y, flight.width);
         bullets.add(bullet);
         audioManager.playShootSound();

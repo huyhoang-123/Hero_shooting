@@ -2,7 +2,6 @@ package com.example.ihavetofly;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Rect;
 
 import java.util.Random;
@@ -18,12 +17,15 @@ public class Bomb {
     private Bitmap bombBitmap;
     private Random random;
 
-    public Bomb(Resources res, int screenX, int screenY){
-        bombBitmap = BitmapFactory.decodeResource(res, R.drawable.bomb_4);
+    // reusable collision rect
+    private final Rect collisionRect = new Rect();
 
-        width = bombBitmap.getWidth() / 8; // scale nhỏ
-        height = bombBitmap.getHeight() * width / bombBitmap.getWidth();
-        bombBitmap = Bitmap.createScaledBitmap(bombBitmap, width, height, true);
+    public Bomb(Resources res, int screenX, int screenY){
+        Bitmap bmp = BitmapCache.get(res, R.drawable.bomb_4, 1);
+
+        width = bmp.getWidth() / 8; // scale nhỏ
+        height = bmp.getHeight() * width / bmp.getWidth();
+        bombBitmap = Bitmap.createScaledBitmap(bmp, width, height, true);
 
         random = new Random();
         x = -width;
@@ -33,14 +35,17 @@ public class Bomb {
     public void spawn(int screenX, boolean respawnBomb){
         active = true;
         y = -height;  // khởi tạo trên màn hình
-        x = random.nextInt(screenX - width);
+        x = random.nextInt(Math.max(1, screenX - width));
         spawnTime = System.currentTimeMillis();
         isRespawnBomb = respawnBomb;
     }
 
+    /**
+     * deltaTime in seconds, speed in pixels/second
+     */
     public void update(float deltaTime, int speed){
         if(!active) return;
-        y += speed * deltaTime;
+        y += (int)(speed * deltaTime);
     }
 
     public void clear(){
@@ -51,7 +56,8 @@ public class Bomb {
     }
 
     public Rect getCollisionShape(){
-        return new Rect(x, y, x + width, y + height);
+        collisionRect.set(x, y, x + width, y + height);
+        return collisionRect;
     }
 
     public Bitmap getBitmap(){
