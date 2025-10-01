@@ -55,14 +55,21 @@ public class GameView extends SurfaceView implements Runnable {
     private Paint gameOverTextPaint;
     private Paint exitButtonPaint;
 
+    // --- Bomb ---
+    private Bomb bomb;
+    private long lastBombSpawnTime = 0;
+    private static final long BOMB_SPAWN_INTERVAL = 10000; // 10s
+    private static final long BOMB_DURATION = 5000;         // 5s
+    private static final int bombSpeed = 400;              // pixels/s
+
     public GameView(GameActivity activity, int screenX, int screenY) {
         super(activity);
         this.activity = activity;
         prefs = activity.getSharedPreferences("game", GameActivity.MODE_PRIVATE);
 
         audioManager = GameAudioManager.getInstance(activity);
-        audioManager.prepare(); // preload nhạc + sound effects
-        audioManager.playBackground(); // Bắt đầu chạy background music ngay lập tức
+        audioManager.prepare();
+        audioManager.playBackground();
 
         this.screenX = screenX;
         this.screenY = screenY;
@@ -73,7 +80,6 @@ public class GameView extends SurfaceView implements Runnable {
         background = new Background(getResources(), R.drawable.background, screenY);
         flight = new Flight(this, screenY, getResources());
 
-        // Load game over bitmap (ship bloom)
         Bitmap tmp = BitmapFactory.decodeResource(getResources(), R.drawable.space_ship_bloom);
         gameOverBitmap = Bitmap.createScaledBitmap(tmp, flight.width, flight.height, true);
         if(tmp != gameOverBitmap) tmp.recycle();
@@ -86,6 +92,8 @@ public class GameView extends SurfaceView implements Runnable {
         initPaints();
         initBirds();
         initGameOverUI();
+
+        bomb = new Bomb(getResources(), screenX, screenY);
 
         getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
@@ -167,6 +175,7 @@ public class GameView extends SurfaceView implements Runnable {
         handleAutoShoot(currentTime);
         updateBullets(deltaTime);
         updateBirds();
+        updateBomb(currentTime, deltaTime);
     }
 
     private void updateCamera() {
@@ -182,7 +191,6 @@ public class GameView extends SurfaceView implements Runnable {
     }
 
     private void handleAutoShoot(long currentTime) {
-        // Chỉ bắn khi đang di chuyển trái/phải
         boolean isMoving = flight.movingLeft || flight.movingRight;
         if (isMoving && currentTime - lastShootTime >= SHOOT_INTERVAL && bullets.size() < MAX_BULLETS) {
             newBullet();
@@ -221,7 +229,7 @@ public class GameView extends SurfaceView implements Runnable {
 
         for (Bird bird : birds) {
             bird.y += bird.speed;
-            bird.updateFrame(); // mỗi lần update, frame thay đổi → tạo cánh flapping
+            bird.updateFrame();
 
             if (bird.y > screenY || bird.wasShot)
                 respawnBird(bird);
@@ -251,6 +259,35 @@ public class GameView extends SurfaceView implements Runnable {
             bird.speed = (int)(bird.speed*1.5f);
     }
 
+    private void updateBomb(long currentTime, float deltaTime){
+        // Spawn bomb mới mỗi 10s nếu chưa active
+        if(!bomb.active && currentTime - lastBombSpawnTime >= BOMB_SPAWN_INTERVAL){
+            bomb.spawn(screenX, true); // bomb mới spawn có timeout
+            lastBombSpawnTime = currentTime;
+        }
+
+        if(bomb.active){
+            bomb.update(deltaTime, bombSpeed);
+
+            // Bomb mới spawn chưa rơi xuống màn hình → clear sau 5s
+            if(bomb.isRespawnBomb && bomb.y < 0 && currentTime - bomb.spawnTime >= BOMB_DURATION){
+                bomb.clear();
+            }
+
+            // Bomb đi hết màn hình → tự clear
+            if(bomb.y > screenY){
+                bomb.clear();
+            }
+
+            // Va chạm với flight → game over
+            if(bomb.active && bomb.y >= 0 && Rect.intersects(bomb.getCollisionShape(),
+                    new Rect(flight.x, flight.y, flight.x + flight.width, flight.y + flight.height))){
+                isGameOver = true;
+                saveIfHighScore();
+            }
+        }
+    }
+
     private void draw() {
         if (!getHolder().getSurface().isValid()) return;
         Canvas canvas = getHolder().lockCanvas();
@@ -271,6 +308,10 @@ public class GameView extends SurfaceView implements Runnable {
 
                 for(Bullet bullet: bullets)
                     if(bullet.bullet!=null) canvas.drawBitmap(bullet.bullet, bullet.x - cameraX, bullet.y, paint);
+
+                if(bomb.active && bomb.getBitmap()!=null){
+                    canvas.drawBitmap(bomb.getBitmap(), bomb.x - cameraX, bomb.y, paint);
+                }
 
                 canvas.drawText(String.valueOf(score), screenX/2f, screenY*0.08f, scorePaint);
             }
