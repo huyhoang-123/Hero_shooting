@@ -53,6 +53,8 @@ public class GameView extends SurfaceView implements Runnable {
     private static final int bombSpeed = 400;
 
     private List<Coin> coins;
+    private List<PowerUp> powerUps;
+    private ShieldEffect shieldEffect;
 
     private Bitmap gameOverBitmap;
     private Paint gameplayTextPaint;
@@ -80,15 +82,12 @@ public class GameView extends SurfaceView implements Runnable {
         prefs = activity.getSharedPreferences("game", GameActivity.MODE_PRIVATE);
 
         audioManager = GameAudioManager.getInstance(activity);
-        audioManager.prepare();
-        audioManager.playBackground();
 
         background = new Background(getResources(), R.drawable.background, screenY);
         flight = new Flight(screenX, screenY, getResources());
 
-        Bitmap tmp = BitmapFactory.decodeResource(getResources(), R.drawable.space_ship_bloom);
+        Bitmap tmp = BitmapCache.get(getResources(), R.drawable.space_ship_bloom, 1);
         gameOverBitmap = Bitmap.createScaledBitmap(tmp, flight.width, flight.height, true);
-        if (tmp != gameOverBitmap) tmp.recycle();
 
         volumeButton = new VolumeButton(activity, screenX, screenY);
         bullets = new ArrayList<>(MAX_BULLETS);
@@ -100,6 +99,7 @@ public class GameView extends SurfaceView implements Runnable {
 
         bomb = new Bomb(getResources(), screenX, screenY);
         coins = new ArrayList<>();
+        powerUps = new ArrayList<>();
 
         loadHighScores();
 
@@ -111,6 +111,8 @@ public class GameView extends SurfaceView implements Runnable {
         getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
+                audioManager.prepare();
+                audioManager.playBackground();
             }
 
             @Override
@@ -137,17 +139,14 @@ public class GameView extends SurfaceView implements Runnable {
     private void initIcons() {
         iconSize = (int) (screenY * 0.04f);
 
-        Bitmap scoreTmp = BitmapFactory.decodeResource(getResources(), R.drawable.score_nobg);
+        Bitmap scoreTmp = BitmapCache.get(getResources(), R.drawable.score_nobg, 1);
         scoreIcon = Bitmap.createScaledBitmap(scoreTmp, iconSize, iconSize, true);
-        if (scoreTmp != scoreIcon) scoreTmp.recycle();
 
-        Bitmap timeTmp = BitmapFactory.decodeResource(getResources(), R.drawable.clock);
+        Bitmap timeTmp = BitmapCache.get(getResources(), R.drawable.clock, 1);
         timeIcon = Bitmap.createScaledBitmap(timeTmp, iconSize, iconSize, true);
-        if (timeTmp != timeIcon) timeTmp.recycle();
 
-        Bitmap coinTmp = BitmapFactory.decodeResource(getResources(), R.drawable.coin1);
+        Bitmap coinTmp = BitmapCache.get(getResources(), R.drawable.coin1, 1);
         coinIcon = Bitmap.createScaledBitmap(coinTmp, iconSize, iconSize, true);
-        if (coinTmp != coinIcon) coinTmp.recycle();
     }
 
     private void initBirds() {
@@ -197,7 +196,9 @@ public class GameView extends SurfaceView implements Runnable {
         updateBirds(deltaTime);
         updateBomb(currentTime, deltaTime);
         updateCoins(deltaTime);
+        updatePowerUps(deltaTime);
         checkCoinCollision();
+        checkPowerUpCollision();
         checkWinCondition();
     }
 
@@ -205,6 +206,7 @@ public class GameView extends SurfaceView implements Runnable {
         boolean isMoving = flight.movingLeft || flight.movingRight || flight.movingUp || flight.movingDown;
         if (isMoving && currentTime - lastShootTime >= SHOOT_INTERVAL && bullets.size() < MAX_BULLETS) {
             newBullet();
+            audioManager.playShootSound();
             lastShootTime = currentTime;
         }
     }
@@ -227,11 +229,37 @@ public class GameView extends SurfaceView implements Runnable {
                     score++;
                     bird.wasShot = true;
 
-                    Coin c = new Coin(getResources());
-                    int spawnX = bird.x + bird.width / 2 - (c.width / 2);
-                    int spawnY = bird.y + bird.height / 2 - (c.height / 2);
-                    c.spawnAt(spawnX, spawnY);
-                    coins.add(c);
+                    // Random drop: 30% coin, 25% double bullet, 25% kunai, 20% shield
+                    int dropChance = random.nextInt(100);
+                    if (dropChance < 30) {
+                        // Drop coin
+                        Coin c = new Coin(getResources());
+                        int spawnX = bird.x + bird.width / 2 - (c.width / 2);
+                        int spawnY = bird.y + bird.height / 2 - (c.height / 2);
+                        c.spawnAt(spawnX, spawnY);
+                        coins.add(c);
+                    } else if (dropChance < 55) {
+                        // Drop double bullet
+                        PowerUp p = new PowerUp(getResources(), PowerUp.TYPE_DOUBLE_BULLET);
+                        int spawnX = bird.x + bird.width / 2 - (p.width / 2);
+                        int spawnY = bird.y + bird.height / 2 - (p.height / 2);
+                        p.spawnAt(spawnX, spawnY);
+                        powerUps.add(p);
+                    } else if (dropChance < 80) {
+                        // Drop kunai
+                        PowerUp p = new PowerUp(getResources(), PowerUp.TYPE_KUNAI);
+                        int spawnX = bird.x + bird.width / 2 - (p.width / 2);
+                        int spawnY = bird.y + bird.height / 2 - (p.height / 2);
+                        p.spawnAt(spawnX, spawnY);
+                        powerUps.add(p);
+                    } else {
+                        // Drop shield
+                        PowerUp p = new PowerUp(getResources(), PowerUp.TYPE_SHIELD);
+                        int spawnX = bird.x + bird.width / 2 - (p.width / 2);
+                        int spawnY = bird.y + bird.height / 2 - (p.height / 2);
+                        p.spawnAt(spawnX, spawnY);
+                        powerUps.add(p);
+                    }
 
                     respawnBird(bird);
                     it.remove();
@@ -251,7 +279,7 @@ public class GameView extends SurfaceView implements Runnable {
             if (bird.y > screenY || bird.wasShot)
                 respawnBird(bird);
 
-            if (!isGameOver && !bird.wasShot && Rect.intersects(bird.getCollisionShape(), tempRect)) {
+            if (!isGameOver && !bird.wasShot && !flight.hasShield() && Rect.intersects(bird.getCollisionShape(), tempRect)) {
                 isGameOver = true;
                 isWin = false;
                 saveHighScores();
@@ -283,7 +311,7 @@ public class GameView extends SurfaceView implements Runnable {
                 bomb.clear();
             }
 
-            if (!isGameOver && Rect.intersects(tempRect, bomb.getCollisionShape())) {
+            if (!isGameOver && !flight.hasShield() && Rect.intersects(tempRect, bomb.getCollisionShape())) {
                 isGameOver = true;
                 isWin = false;
                 saveHighScores();
@@ -300,7 +328,17 @@ public class GameView extends SurfaceView implements Runnable {
         }
     }
 
+    private void updatePowerUps(float deltaTime) {
+        Iterator<PowerUp> it = powerUps.iterator();
+        while (it.hasNext()) {
+            PowerUp p = it.next();
+            p.update(deltaTime, screenY);
+            if (!p.active) it.remove();
+        }
+    }
+
     private void checkCoinCollision() {
+        tempRect.set(flight.x, flight.y, flight.x + flight.width, flight.y + flight.height);
         Iterator<Coin> it = coins.iterator();
         while (it.hasNext()) {
             Coin c = it.next();
@@ -312,9 +350,44 @@ public class GameView extends SurfaceView implements Runnable {
         }
     }
 
+    private void checkPowerUpCollision() {
+        tempRect.set(flight.x, flight.y, flight.x + flight.width, flight.y + flight.height);
+        Iterator<PowerUp> it = powerUps.iterator();
+        while (it.hasNext()) {
+            PowerUp p = it.next();
+            if (p.active && Rect.intersects(tempRect, p.getCollisionShape())) {
+                if (p.type == PowerUp.TYPE_DOUBLE_BULLET) {
+                    flight.activateDoubleBullet();
+                } else if (p.type == PowerUp.TYPE_KUNAI) {
+                    flight.activateKunai();
+                } else if (p.type == PowerUp.TYPE_SHIELD) {
+                    flight.activateShield();
+                    float shieldRadius = Math.max(flight.width, flight.height) * 1.2f;
+                    shieldEffect = new ShieldEffect(
+                            flight.x + flight.width / 2f,
+                            flight.y + flight.height / 2f,
+                            shieldRadius
+                    );
+                }
+                p.clear();
+                it.remove();
+            }
+        }
+    }
+
     private void newBullet() {
-        Bullet b = new Bullet(getResources(), flight.x + flight.width / 2, flight.y, flight.width);
-        bullets.add(b);
+        boolean useKunai = flight.hasKunai();
+
+        if (flight.hasDoubleBullet()) {
+            int offset = flight.width / 4;
+            Bullet b1 = new Bullet(getResources(), flight.x + offset, flight.y, flight.width, useKunai);
+            Bullet b2 = new Bullet(getResources(), flight.x + flight.width - offset, flight.y, flight.width, useKunai);
+            bullets.add(b1);
+            bullets.add(b2);
+        } else {
+            Bullet b = new Bullet(getResources(), flight.x + flight.width / 2, flight.y, flight.width, useKunai);
+            bullets.add(b);
+        }
     }
 
     private void saveHighScores() {
@@ -392,6 +465,18 @@ public class GameView extends SurfaceView implements Runnable {
         if (flight != null && flight.getFlight() != null)
             canvas.drawBitmap(flight.getFlight(), flight.x, flight.y, paint);
 
+        // Draw shield effect around flight
+        if (shieldEffect != null) {
+            shieldEffect.updatePosition(
+                    flight.x + flight.width / 2f,
+                    flight.y + flight.height / 2f
+            );
+            shieldEffect.draw(canvas);
+            if (shieldEffect.isExpired()) {
+                shieldEffect = null;
+            }
+        }
+
         for (Bird bird : birds)
             if (!bird.wasShot && bird.getBird() != null)
                 canvas.drawBitmap(bird.getBird(), bird.x, bird.y, paint);
@@ -407,6 +492,10 @@ public class GameView extends SurfaceView implements Runnable {
             if (c.active && c.getBitmap() != null)
                 canvas.drawBitmap(c.getBitmap(), c.x, c.y, paint);
 
+        for (PowerUp p : powerUps)
+            if (p.active && p.getBitmap() != null)
+                canvas.drawBitmap(p.getBitmap(), p.x, p.y, paint);
+
         drawGameplayHUD(canvas);
     }
 
@@ -418,12 +507,10 @@ public class GameView extends SurfaceView implements Runnable {
         gameplayTextPaint.setTextSize(screenY * 0.03f);
         gameplayTextPaint.setTextAlign(Paint.Align.LEFT);
 
-        // Get font metrics for vertical centering
         Paint.FontMetrics fm = gameplayTextPaint.getFontMetrics();
         float textHeight = fm.bottom - fm.top;
-        float textOffset = textHeight / 2 - fm.bottom; // to align text center with icon
+        float textOffset = textHeight / 2 - fm.bottom;
 
-        // --- SCORE ---
         float scoreX = leftPadding;
         float iconCenterY = topMargin + iconSize / 2f;
         float textBaseY = iconCenterY + textOffset;
@@ -435,7 +522,6 @@ public class GameView extends SurfaceView implements Runnable {
                 gameplayTextPaint
         );
 
-        // --- TIME ---
         float timeX = leftPadding + spacing;
         canvas.drawBitmap(timeIcon, timeX, topMargin, paint);
         canvas.drawText(gameTime + "s",
@@ -444,7 +530,6 @@ public class GameView extends SurfaceView implements Runnable {
                 gameplayTextPaint
         );
 
-        // --- COINS ---
         float coinX = leftPadding + spacing * 2;
         canvas.drawBitmap(coinIcon, coinX, topMargin, paint);
         canvas.drawText(String.valueOf(flight.getCoinScore()),
@@ -453,7 +538,6 @@ public class GameView extends SurfaceView implements Runnable {
                 gameplayTextPaint
         );
     }
-
 
     public void resume() {
         isPlaying = true;
@@ -464,7 +548,7 @@ public class GameView extends SurfaceView implements Runnable {
     public void pause() {
         try {
             isPlaying = false;
-            thread.join();
+            if (thread != null) thread.join();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -472,12 +556,14 @@ public class GameView extends SurfaceView implements Runnable {
 
     public void cleanup() {
         isPlaying = false;
-        audioManager.release();
+        if (audioManager != null) audioManager.release();
         if (gameOverScreen != null) gameOverScreen.cleanup();
         if (gameWinScreen != null) gameWinScreen.cleanup();
         if (scoreIcon != null && !scoreIcon.isRecycled()) scoreIcon.recycle();
         if (timeIcon != null && !timeIcon.isRecycled()) timeIcon.recycle();
         if (coinIcon != null && !coinIcon.isRecycled()) coinIcon.recycle();
+        if (gameOverBitmap != null && !gameOverBitmap.isRecycled()) gameOverBitmap.recycle();
+        BitmapCache.clear();
     }
 
     @Override
@@ -532,9 +618,12 @@ public class GameView extends SurfaceView implements Runnable {
         isWin = false;
         score = 0;
         flight.resetCoinScore();
+        flight.resetPowerUps();
+        shieldEffect = null;
         startTime = System.currentTimeMillis();
         bullets.clear();
         coins.clear();
+        powerUps.clear();
         for (Bird b : birds) respawnBird(b);
     }
 }

@@ -24,7 +24,7 @@ public class MainActivity extends AppCompatActivity {
         // Hiển thị high score
         highscore = findViewById(R.id.highScoreTxt);
         SharedPreferences prefs = getSharedPreferences("game", MODE_PRIVATE);
-        highscore.setText("Highscore: " + prefs.getInt("high_score", 0));
+        highscore.setText(String.valueOf(prefs.getInt("high_score", 0)));
 
         // Preload bitmap nhẹ
         preloadBitmaps();
@@ -34,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         SharedPreferences prefs = getSharedPreferences("game", MODE_PRIVATE);
-        highscore.setText("Highscore: " + prefs.getInt("high_score", 0));
+        highscore.setText(String.valueOf(prefs.getInt("high_score", 0)));
     }
 
     private void preloadBitmaps() {

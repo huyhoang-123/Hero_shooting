@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">IHaveToFly</string>
+    <string name="app_name">StarWar</string>
     <string name="bg_image">Background image</string>
-    <string name="app_title">I Have To Fly</string>
+    <string name="app_title">Star War</string>
 </resources>
