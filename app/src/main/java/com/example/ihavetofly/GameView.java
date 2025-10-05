@@ -8,6 +8,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -54,7 +55,7 @@ public class GameView extends SurfaceView implements Runnable {
     private List<Coin> coins;
 
     private Bitmap gameOverBitmap;
-    private Paint gameOverTextPaint;
+    private Paint gameplayTextPaint;
 
     private final Rect tempRect = new Rect();
     private long lastFrameTime = 0;
@@ -66,6 +67,9 @@ public class GameView extends SurfaceView implements Runnable {
 
     private GameOverScreen gameOverScreen;
     private GameWinScreen gameWinScreen;
+
+    private Bitmap scoreIcon, timeIcon, coinIcon;
+    private int iconSize;
 
     public GameView(GameActivity activity, int screenX, int screenY) {
         super(activity);
@@ -91,6 +95,7 @@ public class GameView extends SurfaceView implements Runnable {
         random = new Random();
 
         initPaints();
+        initIcons();
         initBirds();
 
         bomb = new Bomb(getResources(), screenX, screenY);
@@ -123,10 +128,26 @@ public class GameView extends SurfaceView implements Runnable {
         paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setFilterBitmap(true);
 
-        gameOverTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        gameOverTextPaint.setColor(Color.WHITE);
-        gameOverTextPaint.setTextAlign(Paint.Align.LEFT);
-        gameOverTextPaint.setShadowLayer(6, 2, 2, Color.BLACK);
+        gameplayTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        gameplayTextPaint.setColor(Color.WHITE);
+        gameplayTextPaint.setTextAlign(Paint.Align.LEFT);
+        gameplayTextPaint.setShadowLayer(4, 2, 2, Color.BLACK);
+    }
+
+    private void initIcons() {
+        iconSize = (int) (screenY * 0.04f);
+
+        Bitmap scoreTmp = BitmapFactory.decodeResource(getResources(), R.drawable.score_nobg);
+        scoreIcon = Bitmap.createScaledBitmap(scoreTmp, iconSize, iconSize, true);
+        if (scoreTmp != scoreIcon) scoreTmp.recycle();
+
+        Bitmap timeTmp = BitmapFactory.decodeResource(getResources(), R.drawable.clock);
+        timeIcon = Bitmap.createScaledBitmap(timeTmp, iconSize, iconSize, true);
+        if (timeTmp != timeIcon) timeTmp.recycle();
+
+        Bitmap coinTmp = BitmapFactory.decodeResource(getResources(), R.drawable.coin1);
+        coinIcon = Bitmap.createScaledBitmap(coinTmp, iconSize, iconSize, true);
+        if (coinTmp != coinIcon) coinTmp.recycle();
     }
 
     private void initBirds() {
@@ -274,8 +295,8 @@ public class GameView extends SurfaceView implements Runnable {
         Iterator<Coin> it = coins.iterator();
         while (it.hasNext()) {
             Coin c = it.next();
-            c.update(deltaTime, screenY); // ← FIXED: Pass screenY instead of coinSpeed
-            if (!c.active) it.remove(); // ← FIXED: Remove if cleared, not if y > screenY
+            c.update(deltaTime, screenY);
+            if (!c.active) it.remove();
         }
     }
 
@@ -386,19 +407,53 @@ public class GameView extends SurfaceView implements Runnable {
             if (c.active && c.getBitmap() != null)
                 canvas.drawBitmap(c.getBitmap(), c.x, c.y, paint);
 
-        float margin = screenX * 0.03f;
-        float scoreTop = screenY * 0.03f;
-
-        gameOverTextPaint.setTextSize(screenY * 0.035f);
-        canvas.drawText("SCORE: " + score, margin, scoreTop, gameOverTextPaint);
-
-        gameOverTextPaint.setTextSize(screenY * 0.025f);
-        float timeTextY = scoreTop + 50;
-        canvas.drawText("TIME: " + gameTime + "s", margin, timeTextY, gameOverTextPaint);
-
-        float coinTextY = timeTextY + 40;
-        canvas.drawText("COIN: " + flight.getCoinScore(), margin, coinTextY, gameOverTextPaint);
+        drawGameplayHUD(canvas);
     }
+
+    private void drawGameplayHUD(Canvas canvas) {
+        float topMargin = 100;
+        float leftPadding = screenX * 0.05f;
+        float spacing = (screenX - 2 * leftPadding) / 3;
+
+        gameplayTextPaint.setTextSize(screenY * 0.03f);
+        gameplayTextPaint.setTextAlign(Paint.Align.LEFT);
+
+        // Get font metrics for vertical centering
+        Paint.FontMetrics fm = gameplayTextPaint.getFontMetrics();
+        float textHeight = fm.bottom - fm.top;
+        float textOffset = textHeight / 2 - fm.bottom; // to align text center with icon
+
+        // --- SCORE ---
+        float scoreX = leftPadding;
+        float iconCenterY = topMargin + iconSize / 2f;
+        float textBaseY = iconCenterY + textOffset;
+
+        canvas.drawBitmap(scoreIcon, scoreX, topMargin, paint);
+        canvas.drawText(String.valueOf(score),
+                scoreX + iconSize + 15,
+                textBaseY,
+                gameplayTextPaint
+        );
+
+        // --- TIME ---
+        float timeX = leftPadding + spacing;
+        canvas.drawBitmap(timeIcon, timeX, topMargin, paint);
+        canvas.drawText(gameTime + "s",
+                timeX + iconSize + 15,
+                textBaseY,
+                gameplayTextPaint
+        );
+
+        // --- COINS ---
+        float coinX = leftPadding + spacing * 2;
+        canvas.drawBitmap(coinIcon, coinX, topMargin, paint);
+        canvas.drawText(String.valueOf(flight.getCoinScore()),
+                coinX + iconSize + 15,
+                textBaseY,
+                gameplayTextPaint
+        );
+    }
+
 
     public void resume() {
         isPlaying = true;
@@ -420,6 +475,9 @@ public class GameView extends SurfaceView implements Runnable {
         audioManager.release();
         if (gameOverScreen != null) gameOverScreen.cleanup();
         if (gameWinScreen != null) gameWinScreen.cleanup();
+        if (scoreIcon != null && !scoreIcon.isRecycled()) scoreIcon.recycle();
+        if (timeIcon != null && !timeIcon.isRecycled()) timeIcon.recycle();
+        if (coinIcon != null && !coinIcon.isRecycled()) coinIcon.recycle();
     }
 
     @Override

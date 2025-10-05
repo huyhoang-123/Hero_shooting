@@ -16,8 +16,9 @@ public class GameOverScreen {
     private int screenX, screenY;
     private Rect exitButtonRect, replayButtonRect, continueButtonRect;
     private Paint textPaint, buttonTextPaint;
-    private Bitmap gameOverImage;
+    private Bitmap gameOverImage, scoreIcon;
     private Resources resources;
+    private int iconSize;
 
     public GameOverScreen(Resources res, int screenX, int screenY) {
         this.resources = res;
@@ -61,25 +62,68 @@ public class GameOverScreen {
         int imgHeight = tmp.getHeight() * imgWidth / tmp.getWidth();
         gameOverImage = Bitmap.createScaledBitmap(tmp, imgWidth, imgHeight, true);
         if (tmp != gameOverImage) tmp.recycle();
+
+        iconSize = (int) (screenY * 0.05f);
+        Bitmap scoreTmp = BitmapFactory.decodeResource(resources, R.drawable.score_nobg);
+        scoreIcon = Bitmap.createScaledBitmap(scoreTmp, iconSize, iconSize, true);
+        if (scoreTmp != scoreIcon) scoreTmp.recycle();
     }
 
     public void draw(Canvas canvas, int score, Bitmap flightBitmap, int flightX, int flightY, Paint paint) {
-        canvas.drawBitmap(gameOverImage, screenX / 2f - gameOverImage.getWidth() / 2f,
-                screenY * 0.25f - gameOverImage.getHeight() / 2f, paint);
+        // --- Draw "Game Over" image ---
+        float gameOverY = screenY * 0.25f - gameOverImage.getHeight() / 2f;
+        canvas.drawBitmap(
+                gameOverImage,
+                screenX / 2f - gameOverImage.getWidth() / 2f,
+                gameOverY,
+                paint
+        );
 
+        // --- Setup text ---
         textPaint.setTextSize(screenY * 0.05f);
-        canvas.drawText("GAME OVER SCORE: " + score, screenX / 2f - 200, screenY * 0.55f, textPaint);
+        textPaint.setTextAlign(Paint.Align.LEFT);
 
+        String scoreText = String.valueOf(score);
+
+        // --- Measure for horizontal centering ---
+        float scoreTextWidth = textPaint.measureText(scoreText);
+        float totalWidth = iconSize + 20 + scoreTextWidth;
+        float startX = (screenX - totalWidth) / 2f;
+
+        // --- Calculate new Y position: slightly above the old one ---
+        float iconTop = gameOverY + gameOverImage.getHeight() + screenY * 0.05f; // closer to GameOver text
+        float iconCenterY = iconTop + iconSize / 2f;
+
+        // --- Vertical centering fix for text ---
+        Paint.FontMetrics fm = textPaint.getFontMetrics();
+        float textHeight = fm.bottom - fm.top;
+        float textOffset = textHeight / 2 - fm.bottom;
+        float textBaseY = iconCenterY + textOffset;
+
+        // --- Draw centered score icon + text ---
+        canvas.drawBitmap(scoreIcon, startX, iconTop, paint);
+        canvas.drawText(scoreText, startX + iconSize + 20, textBaseY, textPaint);
+
+        // --- Draw flight sprite ---
         if (flightBitmap != null) {
             canvas.drawBitmap(flightBitmap, flightX, flightY, paint);
         }
 
+        // --- Draw buttons below ---
         drawButtons(canvas);
     }
 
-    private void drawButtons(Canvas canvas) {
-        buttonTextPaint.setTextSize(screenY * 0.05f);
 
+
+    private void drawButtons(Canvas canvas) {
+        buttonTextPaint.setTextSize(screenY * 0.04f);
+        buttonTextPaint.setTextAlign(Paint.Align.CENTER);
+
+        Paint.FontMetrics fm = buttonTextPaint.getFontMetrics();
+        float textHeight = fm.bottom - fm.top;
+        float textOffset = textHeight / 2 - fm.bottom; // vertical centering adjustment
+
+        // --- REPLAY BUTTON ---
         LinearGradient replayGradient = new LinearGradient(
                 0, replayButtonRect.top, 0, replayButtonRect.bottom,
                 Color.rgb(255, 180, 0), Color.rgb(255, 100, 0), Shader.TileMode.CLAMP
@@ -87,8 +131,13 @@ public class GameOverScreen {
         Paint replayPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         replayPaint.setShader(replayGradient);
         canvas.drawRoundRect(new RectF(replayButtonRect), 30, 30, replayPaint);
-        canvas.drawText("REPLAY", replayButtonRect.centerX(), replayButtonRect.centerY() + 20, buttonTextPaint);
+        canvas.drawText("REPLAY",
+                replayButtonRect.centerX(),
+                replayButtonRect.centerY() + textOffset,
+                buttonTextPaint
+        );
 
+        // --- CONTINUE BUTTON ---
         LinearGradient contGradient = new LinearGradient(
                 0, continueButtonRect.top, 0, continueButtonRect.bottom,
                 Color.rgb(60, 180, 60), Color.rgb(0, 120, 0), Shader.TileMode.CLAMP
@@ -96,8 +145,13 @@ public class GameOverScreen {
         Paint contPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         contPaint.setShader(contGradient);
         canvas.drawRoundRect(new RectF(continueButtonRect), 30, 30, contPaint);
-        canvas.drawText("CONTINUE", continueButtonRect.centerX(), continueButtonRect.centerY() + 20, buttonTextPaint);
+        canvas.drawText("RESUME",
+                continueButtonRect.centerX(),
+                continueButtonRect.centerY() + textOffset,
+                buttonTextPaint
+        );
 
+        // --- EXIT BUTTON ---
         LinearGradient exitGradient = new LinearGradient(
                 0, exitButtonRect.top, 0, exitButtonRect.bottom,
                 Color.rgb(200, 60, 60), Color.rgb(120, 0, 0), Shader.TileMode.CLAMP
@@ -105,8 +159,13 @@ public class GameOverScreen {
         Paint exitPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         exitPaint.setShader(exitGradient);
         canvas.drawRoundRect(new RectF(exitButtonRect), 30, 30, exitPaint);
-        canvas.drawText("EXIT", exitButtonRect.centerX(), exitButtonRect.centerY() + 20, buttonTextPaint);
+        canvas.drawText("EXIT",
+                exitButtonRect.centerX(),
+                exitButtonRect.centerY() + textOffset,
+                buttonTextPaint
+        );
     }
+
 
     public boolean handleTouch(float x, float y, Runnable onReplay, Runnable onContinue, Runnable onExit) {
         if (replayButtonRect.contains((int) x, (int) y)) {
@@ -126,6 +185,10 @@ public class GameOverScreen {
         if (gameOverImage != null && !gameOverImage.isRecycled()) {
             gameOverImage.recycle();
             gameOverImage = null;
+        }
+        if (scoreIcon != null && !scoreIcon.isRecycled()) {
+            scoreIcon.recycle();
+            scoreIcon = null;
         }
     }
 }
