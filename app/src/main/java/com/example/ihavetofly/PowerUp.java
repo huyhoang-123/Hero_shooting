@@ -20,40 +20,62 @@ public class PowerUp {
     public boolean active = false;
     public int type;
 
+    private static Bitmap doubleBulletBitmap;
+    private static Bitmap kunaiBitmap;
+    private static Bitmap shieldBitmap;
+
     private Bitmap powerUpBitmap;
     private final Rect collisionRect = new Rect();
     private final int fallSpeed = 250;
 
     public PowerUp(Resources res, int type) {
         this.type = type;
-        int resId;
+
+        if (type == TYPE_DOUBLE_BULLET && doubleBulletBitmap == null) {
+            doubleBulletBitmap = createPowerUpBitmap(res, R.drawable.double_bullet, type, true);
+        } else if (type == TYPE_KUNAI && kunaiBitmap == null) {
+            kunaiBitmap = createPowerUpBitmap(res, R.drawable.kunai, type, false);
+        } else if (type == TYPE_SHIELD && shieldBitmap == null) {
+            shieldBitmap = createPowerUpBitmap(res, R.drawable.shield, type, false);
+        }
+
         switch (type) {
             case TYPE_DOUBLE_BULLET:
-                resId = R.drawable.double_bullet;
+                powerUpBitmap = doubleBulletBitmap;
                 break;
             case TYPE_KUNAI:
-                resId = R.drawable.kunai;
+                powerUpBitmap = kunaiBitmap;
                 break;
             case TYPE_SHIELD:
-                resId = R.drawable.shield;
+                powerUpBitmap = shieldBitmap;
                 break;
             default:
-                resId = R.drawable.double_bullet;
+                powerUpBitmap = doubleBulletBitmap;
         }
 
-        Bitmap original = BitmapCache.get(res, resId, 1);
-        if (type == TYPE_DOUBLE_BULLET) {
-            width = original.getWidth() / 8;
-        } else {
-            width = original.getWidth() / 5;
+        if (powerUpBitmap != null) {
+            width = powerUpBitmap.getWidth();
+            height = powerUpBitmap.getHeight();
         }
-        height = original.getHeight() * width / original.getWidth();
-
-        Bitmap scaled = Bitmap.createScaledBitmap(original, width, height, true);
-        powerUpBitmap = createCircularBitmap(scaled, type);
 
         x = -width;
         y = -height;
+    }
+
+    private Bitmap createPowerUpBitmap(Resources res, int resId, int type, boolean isDoubleBullet) {
+        Bitmap original = BitmapCache.get(res, resId, 1);
+        int width = isDoubleBullet ? original.getWidth() / 8 : original.getWidth() / 5;
+        int height = original.getHeight() * width / original.getWidth();
+
+        Bitmap scaled = Bitmap.createScaledBitmap(original, width, height, true);
+        Bitmap result = createCircularBitmap(scaled, type);
+
+        // CRITICAL FIX: Recycle the scaled bitmap after use
+        if (scaled != result && !scaled.isRecycled()) {
+            scaled.recycle();
+        }
+
+        return result;
     }
 
     private Bitmap createCircularBitmap(Bitmap source, int type) {
@@ -61,52 +83,42 @@ public class PowerUp {
         Bitmap output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(output);
 
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        Paint imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        // Different colors for different power-ups
-        int bgColor, borderColor, shadowColor;
+        int bgColor, borderColor;
         switch (type) {
             case TYPE_SHIELD:
-                bgColor = 0x8000FFFF; // Cyan
+                bgColor = 0x8000FFFF;
                 borderColor = 0xFF00FFFF;
-                shadowColor = 0xAA00FFFF;
                 break;
             case TYPE_KUNAI:
-                bgColor = 0x80FF4444; // Red
+                bgColor = 0x80FF4444;
                 borderColor = 0xFFFF0000;
-                shadowColor = 0xAAFF4444;
                 break;
-            default: // DOUBLE_BULLET
-                bgColor = 0x80FFFFFF; // White
-                borderColor = 0xFFFFD700; // Gold
-                shadowColor = 0xAAFFFFFF;
+            default:
+                bgColor = 0x80FFFFFF;
+                borderColor = 0xFFFFD700;
         }
 
-        // Draw blurred background circle
-        paint.setColor(bgColor);
-        paint.setShadowLayer(15f, 0, 0, shadowColor);
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5, paint);
+        bgPaint.setColor(bgColor);
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5, bgPaint);
 
-        // Draw border
-        paint.reset();
-        paint.setAntiAlias(true);
-        paint.setColor(borderColor);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(4f);
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5, paint);
+        borderPaint.setColor(borderColor);
+        borderPaint.setStyle(Paint.Style.STROKE);
+        borderPaint.setStrokeWidth(4f);
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5, borderPaint);
 
-        // Draw the actual image inside circle
-        paint.reset();
-        paint.setAntiAlias(true);
         Rect rect = new Rect(0, 0, size, size);
         RectF rectF = new RectF(rect);
 
-        canvas.drawOval(rectF, paint);
-        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+        canvas.drawOval(rectF, imagePaint);
+        imagePaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
 
         int left = (size - source.getWidth()) / 2;
         int top = (size - source.getHeight()) / 2;
-        canvas.drawBitmap(source, left, top, paint);
+        canvas.drawBitmap(source, left, top, imagePaint);
 
         return output;
     }
@@ -138,5 +150,20 @@ public class PowerUp {
 
     public Bitmap getBitmap() {
         return powerUpBitmap;
+    }
+
+    public static void clearCache() {
+        if (doubleBulletBitmap != null && !doubleBulletBitmap.isRecycled()) {
+            doubleBulletBitmap.recycle();
+            doubleBulletBitmap = null;
+        }
+        if (kunaiBitmap != null && !kunaiBitmap.isRecycled()) {
+            kunaiBitmap.recycle();
+            kunaiBitmap = null;
+        }
+        if (shieldBitmap != null && !shieldBitmap.isRecycled()) {
+            shieldBitmap.recycle();
+            shieldBitmap = null;
+        }
     }
 }

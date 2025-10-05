@@ -10,23 +10,25 @@ public class Bomb {
 
     public int x, y;
     public int width, height;
-    public boolean active = false;        // Bomb đang hoạt động
-    public long spawnTime;                 // Thời gian spawn
-    public boolean isRespawnBomb = false; // Bomb mới spawn có thể clear timeout
+    public boolean active = false;
+    public long spawnTime;
+    public boolean isRespawnBomb = false;
 
-    private Bitmap bombBitmap;
+    private static Bitmap bombBitmap;
     private Random random;
 
-    // reusable collision rect
     private final Rect collisionRect = new Rect();
 
     public Bomb(Resources res, int screenX, int screenY){
-        Bitmap bmp = BitmapCache.get(res, R.drawable.bomb_4, 1);
+        if (bombBitmap == null) {
+            Bitmap bmp = BitmapCache.get(res, R.drawable.bomb_4, 1);
+            int w = bmp.getWidth() / 8;
+            int h = bmp.getHeight() * w / bmp.getWidth();
+            bombBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
+        }
 
-        width = bmp.getWidth() / 8; // scale nhỏ
-        height = bmp.getHeight() * width / bmp.getWidth();
-        bombBitmap = Bitmap.createScaledBitmap(bmp, width, height, true);
-
+        width = bombBitmap.getWidth();
+        height = bombBitmap.getHeight();
         random = new Random();
         x = -width;
         y = -height;
@@ -34,15 +36,12 @@ public class Bomb {
 
     public void spawn(int screenX, boolean respawnBomb){
         active = true;
-        y = -height;  // khởi tạo trên màn hình
+        y = -height;
         x = random.nextInt(Math.max(1, screenX - width));
         spawnTime = System.currentTimeMillis();
         isRespawnBomb = respawnBomb;
     }
 
-    /**
-     * deltaTime in seconds, speed in pixels/second
-     */
     public void update(float deltaTime, int speed){
         if(!active) return;
         y += (int)(speed * deltaTime);
@@ -62,5 +61,12 @@ public class Bomb {
 
     public Bitmap getBitmap(){
         return bombBitmap;
+    }
+
+    public static void clearCache() {
+        if (bombBitmap != null && !bombBitmap.isRecycled()) {
+            bombBitmap.recycle();
+            bombBitmap = null;
+        }
     }
 }

@@ -3,12 +3,10 @@ package com.example.ihavetofly;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -73,6 +71,8 @@ public class GameView extends SurfaceView implements Runnable {
     private Bitmap scoreIcon, timeIcon, coinIcon;
     private int iconSize;
 
+    private BossManager bossManager;
+
     public GameView(GameActivity activity, int screenX, int screenY) {
         super(activity);
         this.activity = activity;
@@ -95,6 +95,10 @@ public class GameView extends SurfaceView implements Runnable {
 
         initPaints();
         initIcons();
+
+        // IMPORTANT: bossManager must exist before initBirds() because respawnBird() uses it
+        bossManager = new BossManager(getResources(), screenX, screenY);
+
         initBirds();
 
         bomb = new Bomb(getResources(), screenX, screenY);
@@ -191,14 +195,72 @@ public class GameView extends SurfaceView implements Runnable {
         flight.updatePosition(deltaTime);
         background.update(deltaTime);
 
+        // --- FIXED Boss spawn logic ---
+        // Compute whether all birds are off-screen (call this every frame)
+        boolean allBirdsGone = true;
+        if (birds != null) {
+            for (Bird bird : birds) {
+                if (bird != null && bird.y < screenY) {
+                    allBirdsGone = false;
+                    break;
+                }
+            }
+        }
+
+        // If it's time to attempt spawning (BossManager decides on time)
+        boolean timeToSpawn = bossManager != null && bossManager.shouldSpawnBoss(currentTime);
+
+        if (timeToSpawn) {
+            if (allBirdsGone) {
+                // birds are clear, spawn boss now
+                bossManager.spawnBoss();
+            } else {
+                // not clear yet -> wait until they are cleared
+                bossManager.setWaitingForBirdsToClear(true);
+            }
+        } else {
+            // If we were waiting earlier, and birds are now cleared -> spawn immediately
+            if (bossManager != null && bossManager.isWaitingForBirdsToClear() && allBirdsGone) {
+                bossManager.spawnBoss();
+            }
+        }
+        // --- end fixed boss spawn logic ---
+
+        // Debug: Log boss status every 5 seconds
+        if (gameTime > 0 && gameTime % 5 == 0) {
+            Boss boss = bossManager.getBoss();
+            android.util.Log.d("BOSS_DEBUG", "GameTime=" + gameTime +
+                    ", BossActive=" + (boss != null && boss.active) +
+                    ", Waiting=" + (bossManager != null && bossManager.isWaitingForBirdsToClear()));
+        }
+
+        // Update boss system
+        if (bossManager != null)
+            bossManager.update(deltaTime, screenX, screenY, getResources());
+
+        // Check boss score reward
+        int bossScore = bossManager != null ? bossManager.checkBossDestroyed() : 0;
+        if (bossScore > 0) {
+            score += bossScore;
+            android.util.Log.d("BOSS_DEBUG", "Boss destroyed! Added " + bossScore + " points");
+        }
+
         handleAutoShoot(currentTime);
         updateBullets(deltaTime);
-        updateBirds(deltaTime);
+
+        // Only update birds if boss is not active
+        if (bossManager == null || !bossManager.getBoss().active) {
+            updateBirds(deltaTime);
+        } else {
+            android.util.Log.d("BOSS_DEBUG", "Boss is active, birds not updating");
+        }
+
         updateBomb(currentTime, deltaTime);
         updateCoins(deltaTime);
         updatePowerUps(deltaTime);
         checkCoinCollision();
         checkPowerUpCollision();
+        checkBossCollisions();
         checkWinCondition();
     }
 
@@ -229,31 +291,26 @@ public class GameView extends SurfaceView implements Runnable {
                     score++;
                     bird.wasShot = true;
 
-                    // Random drop: 30% coin, 25% double bullet, 25% kunai, 20% shield
                     int dropChance = random.nextInt(100);
                     if (dropChance < 30) {
-                        // Drop coin
                         Coin c = new Coin(getResources());
                         int spawnX = bird.x + bird.width / 2 - (c.width / 2);
                         int spawnY = bird.y + bird.height / 2 - (c.height / 2);
                         c.spawnAt(spawnX, spawnY);
                         coins.add(c);
                     } else if (dropChance < 55) {
-                        // Drop double bullet
                         PowerUp p = new PowerUp(getResources(), PowerUp.TYPE_DOUBLE_BULLET);
                         int spawnX = bird.x + bird.width / 2 - (p.width / 2);
                         int spawnY = bird.y + bird.height / 2 - (p.height / 2);
                         p.spawnAt(spawnX, spawnY);
                         powerUps.add(p);
                     } else if (dropChance < 80) {
-                        // Drop kunai
                         PowerUp p = new PowerUp(getResources(), PowerUp.TYPE_KUNAI);
                         int spawnX = bird.x + bird.width / 2 - (p.width / 2);
                         int spawnY = bird.y + bird.height / 2 - (p.height / 2);
                         p.spawnAt(spawnX, spawnY);
                         powerUps.add(p);
                     } else {
-                        // Drop shield
                         PowerUp p = new PowerUp(getResources(), PowerUp.TYPE_SHIELD);
                         int spawnX = bird.x + bird.width / 2 - (p.width / 2);
                         int spawnY = bird.y + bird.height / 2 - (p.height / 2);
@@ -289,8 +346,22 @@ public class GameView extends SurfaceView implements Runnable {
     }
 
     private void respawnBird(Bird bird) {
+        // Don't respawn birds if we're waiting for boss to spawn
+        if (bossManager != null && bossManager.isWaitingForBirdsToClear()) {
+            bird.wasShot = false;
+            bird.y = screenY + bird.height; // Move far off screen
+            return;
+        }
+
+        // Don't respawn birds if boss is active
+        if (bossManager != null && bossManager.getBoss() != null && bossManager.getBoss().active) {
+            bird.wasShot = false;
+            bird.y = screenY + bird.height; // Move far off screen
+            return;
+        }
+
         bird.wasShot = false;
-        bird.y = -bird.height - random.nextInt(screenY / 3);
+        bird.y = -bird.height - random.nextInt(Math.max(1, screenY / 3));
         int range = screenX / 4;
         int spawnX = flight.x + random.nextInt(range * 2) - range;
         spawnX = Math.max(0, Math.min(spawnX, screenX - bird.width));
@@ -371,6 +442,32 @@ public class GameView extends SurfaceView implements Runnable {
                 }
                 p.clear();
                 it.remove();
+            }
+        }
+    }
+
+    private void checkBossCollisions() {
+        Boss boss = bossManager.getBoss();
+
+        if (!boss.active || boss.isExploding) return;
+
+        tempRect.set(flight.x, flight.y, flight.x + flight.width, flight.y + flight.height);
+
+        // Check flight collision with boss
+        if (!flight.hasShield() && Rect.intersects(boss.getCollisionShape(), tempRect)) {
+            isGameOver = true;
+            isWin = false;
+            saveHighScores();
+            return;
+        }
+
+        // Check flight collision with rockets
+        for (Rocket rocket : bossManager.getRockets()) {
+            if (rocket.active && !flight.hasShield() && Rect.intersects(rocket.getCollisionShape(), tempRect)) {
+                isGameOver = true;
+                isWin = false;
+                saveHighScores();
+                return;
             }
         }
     }
@@ -465,7 +562,6 @@ public class GameView extends SurfaceView implements Runnable {
         if (flight != null && flight.getFlight() != null)
             canvas.drawBitmap(flight.getFlight(), flight.x, flight.y, paint);
 
-        // Draw shield effect around flight
         if (shieldEffect != null) {
             shieldEffect.updatePosition(
                     flight.x + flight.width / 2f,
@@ -477,9 +573,24 @@ public class GameView extends SurfaceView implements Runnable {
             }
         }
 
-        for (Bird bird : birds)
-            if (!bird.wasShot && bird.getBird() != null)
-                canvas.drawBitmap(bird.getBird(), bird.x, bird.y, paint);
+        // Only draw birds if boss is not active
+        if (!bossManager.getBoss().active) {
+            for (Bird bird : birds)
+                if (!bird.wasShot && bird.getBird() != null)
+                    canvas.drawBitmap(bird.getBird(), bird.x, bird.y, paint);
+        }
+
+        // Draw boss and rockets
+        Boss boss = bossManager.getBoss();
+        if (boss.active && boss.getBitmap() != null) {
+            canvas.drawBitmap(boss.getBitmap(), boss.x, boss.y, paint);
+        }
+
+        for (Rocket rocket : bossManager.getRockets()) {
+            if (rocket.active && rocket.getBitmap() != null) {
+                canvas.drawBitmap(rocket.getBitmap(), rocket.x, rocket.y, paint);
+            }
+        }
 
         for (Bullet bullet : bullets)
             if (bullet.bullet != null)
@@ -563,6 +674,12 @@ public class GameView extends SurfaceView implements Runnable {
         if (timeIcon != null && !timeIcon.isRecycled()) timeIcon.recycle();
         if (coinIcon != null && !coinIcon.isRecycled()) coinIcon.recycle();
         if (gameOverBitmap != null && !gameOverBitmap.isRecycled()) gameOverBitmap.recycle();
+
+        Bird.clearCache();
+        Coin.clearCache();
+        Bomb.clearCache();
+        PowerUp.clearCache();
+        BossManager.clearCache();
         BitmapCache.clear();
     }
 
@@ -624,6 +741,7 @@ public class GameView extends SurfaceView implements Runnable {
         bullets.clear();
         coins.clear();
         powerUps.clear();
+        if (bossManager != null) bossManager.reset();
         for (Bird b : birds) respawnBird(b);
     }
 }
