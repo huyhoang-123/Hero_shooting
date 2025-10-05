@@ -2,41 +2,66 @@ package com.example.ihavetofly;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 
 public class Flight {
 
-    public int x, y, width, height;
-    public int speed = 600; // pixels per second (đổi sang đơn vị per-second)
-    public boolean movingLeft = false;
-    public boolean movingRight = false;
+    public int x, y;
+    public int width, height;
+    public boolean movingLeft = false, movingRight = false, movingUp = false, movingDown = false;
 
     private Bitmap flightBitmap;
+    private float speed = 600; // pixels/second
+    private int screenX, screenY;
 
-    public Flight(GameView gameView, int screenY, Resources res){
-        flightBitmap = BitmapCache.get(res, R.drawable.space_ships, 1);
-        width = flightBitmap.getWidth()/4;
-        height = flightBitmap.getHeight()/4;
-        flightBitmap = Bitmap.createScaledBitmap(flightBitmap,width,height,true);
-        x = 100;
+    private int coinScore = 0; // thêm biến đếm coin
+
+    public Flight(int screenX, int screenY, Resources res){
+        this.screenX = screenX;
+        this.screenY = screenY;
+
+        Bitmap tmp = BitmapFactory.decodeResource(res, R.drawable.space_ships);
+        width = screenX / 8;
+        height = tmp.getHeight() * width / tmp.getWidth();
+        flightBitmap = Bitmap.createScaledBitmap(tmp, width, height, true);
+        if(tmp != flightBitmap) tmp.recycle();
+
+        // Vị trí ban đầu: giữa đáy màn hình
+        x = screenX / 2 - width / 2;
         y = screenY - height - 50;
     }
 
-    /**
-     * Cập nhật vị trí theo deltaTime (giây). Giữ nguyên giới hạn biên màn hình.
-     */
-    public void updatePosition(int backgroundWidth, float deltaTime){
-        float move = speed * deltaTime;
-        if(movingLeft) x -= (int) move;
-        if(movingRight) x += (int) move;
+    public void updatePosition(float deltaTime){
+        float dx = 0, dy = 0;
+        if(movingLeft) dx -= speed * deltaTime;
+        if(movingRight) dx += speed * deltaTime;
+        if(movingUp) dy -= speed * deltaTime;
+        if(movingDown) dy += speed * deltaTime;
 
-        if(x<0) x=0;
-        if(x+width>backgroundWidth) x = backgroundWidth - width;
-    }
+        x += dx;
+        y += dy;
 
-    // giữ overload cũ để tương thích (nếu có chỗ gọi)
-    public void updatePosition(int backgroundWidth){
-        updatePosition(backgroundWidth, 1f/60f);
+        // Giới hạn trong màn hình
+        if(x < 0) x = 0;
+        if(x + width > screenX) x = screenX - width;
+        if(y < 0) y = 0;
+        if(y + height > screenY) y = screenY - height;
     }
 
     public Bitmap getFlight(){ return flightBitmap; }
+
+    // ----------------------
+    // Các phương thức mới cho coin
+    // ----------------------
+    public void collectCoin(){
+        coinScore++;
+    }
+
+    public int getCoinScore(){
+        return coinScore;
+    }
+
+    public void resetCoinScore(){
+        coinScore = 0;
+    }
 }
