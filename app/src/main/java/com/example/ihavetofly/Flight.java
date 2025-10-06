@@ -116,4 +116,11 @@ public class Flight {
         kunaiEndTime = 0;
         shieldEndTime = 0;
     }
+
+    public void resetPosition() {
+        // Reset flight to bottom middle of screen (like initial game start)
+        x = screenX / 2 - width / 2;
+        y = screenY - height - 50; // Position at bottom with some margin
+        movingLeft = movingRight = movingUp = movingDown = false;
+    }
 }

@@ -16,7 +16,7 @@ import java.util.List;
 public class GameWinScreen {
 
     private int screenX, screenY;
-    private Rect exitButtonRect, replayButtonRect, continueButtonRect;
+    private Rect replayButtonRect, nextLevelButtonRect;
     private Paint textPaint, buttonTextPaint, tablePaint, tableTextPaint;
     private Bitmap winImage;
     private Resources resources;
@@ -56,14 +56,11 @@ public class GameWinScreen {
         int btnH = (int) (screenY * 0.10f);
         int centerX = screenX / 2;
 
-        replayButtonRect = new Rect(centerX - btnW - 20, (int) (screenY * 0.65f),
-                centerX - 20, (int) (screenY * 0.65f) + btnH);
+        replayButtonRect = new Rect(centerX - btnW - 20, (int) (screenY * 0.75f),
+                centerX - 20, (int) (screenY * 0.75f) + btnH);
 
-        continueButtonRect = new Rect(centerX + 20, (int) (screenY * 0.65f),
-                centerX + 20 + btnW, (int) (screenY * 0.65f) + btnH);
-
-        exitButtonRect = new Rect(centerX - btnW / 2, (int) (screenY * 0.78f),
-                centerX + btnW / 2, (int) (screenY * 0.78f) + btnH);
+        nextLevelButtonRect = new Rect(centerX + 20, (int) (screenY * 0.75f),
+                centerX + 20 + btnW, (int) (screenY * 0.75f) + btnH);
     }
 
     private void loadImages() {
@@ -112,9 +109,8 @@ public class GameWinScreen {
 
         Paint.FontMetrics fm = buttonTextPaint.getFontMetrics();
         float textHeight = fm.bottom - fm.top;
-        float textOffset = textHeight / 2 - fm.bottom; // vertical centering adjustment
+        float textOffset = textHeight / 2 - fm.bottom;
 
-        // --- REPLAY BUTTON ---
         LinearGradient replayGradient = new LinearGradient(
                 0, replayButtonRect.top, 0, replayButtonRect.bottom,
                 Color.rgb(255, 180, 0), Color.rgb(255, 100, 0), Shader.TileMode.CLAMP
@@ -128,44 +124,26 @@ public class GameWinScreen {
                 buttonTextPaint
         );
 
-        // --- CONTINUE BUTTON ---
-        LinearGradient contGradient = new LinearGradient(
-                0, continueButtonRect.top, 0, continueButtonRect.bottom,
-                Color.rgb(60, 180, 60), Color.rgb(0, 120, 0), Shader.TileMode.CLAMP
+        LinearGradient nextGradient = new LinearGradient(
+                0, nextLevelButtonRect.top, 0, nextLevelButtonRect.bottom,
+                Color.rgb(60, 180, 255), Color.rgb(0, 100, 200), Shader.TileMode.CLAMP
         );
-        Paint contPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        contPaint.setShader(contGradient);
-        canvas.drawRoundRect(new RectF(continueButtonRect), 30, 30, contPaint);
-        canvas.drawText("RESUME",
-                continueButtonRect.centerX(),
-                continueButtonRect.centerY() + textOffset,
-                buttonTextPaint
-        );
-
-        // --- EXIT BUTTON ---
-        LinearGradient exitGradient = new LinearGradient(
-                0, exitButtonRect.top, 0, exitButtonRect.bottom,
-                Color.rgb(200, 60, 60), Color.rgb(120, 0, 0), Shader.TileMode.CLAMP
-        );
-        Paint exitPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        exitPaint.setShader(exitGradient);
-        canvas.drawRoundRect(new RectF(exitButtonRect), 30, 30, exitPaint);
-        canvas.drawText("EXIT",
-                exitButtonRect.centerX(),
-                exitButtonRect.centerY() + textOffset,
+        Paint nextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        nextPaint.setShader(nextGradient);
+        canvas.drawRoundRect(new RectF(nextLevelButtonRect), 30, 30, nextPaint);
+        canvas.drawText("NEXT LEVEL",
+                nextLevelButtonRect.centerX(),
+                nextLevelButtonRect.centerY() + textOffset,
                 buttonTextPaint
         );
     }
 
-    public boolean handleTouch(float x, float y, Runnable onReplay, Runnable onContinue, Runnable onExit) {
+    public boolean handleTouch(float x, float y, Runnable onReplay, Runnable onNextLevel, Runnable onExit) {
         if (replayButtonRect.contains((int) x, (int) y)) {
             if (onReplay != null) onReplay.run();
             return true;
-        } else if (continueButtonRect.contains((int) x, (int) y)) {
-            if (onContinue != null) onContinue.run();
-            return true;
-        } else if (exitButtonRect.contains((int) x, (int) y)) {
-            if (onExit != null) onExit.run();
+        } else if (nextLevelButtonRect.contains((int) x, (int) y)) {
+            if (onNextLevel != null) onNextLevel.run();
             return true;
         }
         return false;

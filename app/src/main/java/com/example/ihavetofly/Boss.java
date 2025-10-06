@@ -16,11 +16,12 @@ public class Boss {
     private static Bitmap bossBitmap;
     private static Bitmap bossExplodeBitmap;
     private static final int MOVE_SPEED = 300;
-    private static final long SURVIVE_DURATION = 10000; // 10 seconds
+    private static final int REQUIRED_HITS = 100;
     private static final long EXPLODE_ANIMATION_DURATION = 1000; // 1 second
 
     private boolean movingRight = true;
     private final Rect collisionRect = new Rect();
+    private int hitCount = 0;
 
     public Boss(Resources res, int screenX, int screenY) {
         if (bossBitmap == null) {
@@ -49,19 +50,13 @@ public class Boss {
         spawnTime = System.currentTimeMillis();
         x = 0; // Start from left edge
         movingRight = true;
+        hitCount = 0;
     }
 
     public void update(float deltaTime, int screenX) {
         if (!active) return;
 
         long currentTime = System.currentTimeMillis();
-        long aliveTime = currentTime - spawnTime;
-
-        // Check if boss should explode after 10 seconds
-        if (!isExploding && aliveTime >= SURVIVE_DURATION) {
-            startExplode();
-            return;
-        }
 
         // Handle explode animation
         if (isExploding) {
@@ -87,6 +82,23 @@ public class Boss {
         }
     }
 
+    public void hit() {
+        if (!isExploding) {
+            hitCount++;
+            if (hitCount >= REQUIRED_HITS) {
+                startExplode();
+            }
+        }
+    }
+
+    public int getHitCount() {
+        return hitCount;
+    }
+
+    public int getRemainingHits() {
+        return Math.max(0, REQUIRED_HITS - hitCount);
+    }
+
     public void startExplode() {
         isExploding = true;
         explodeTime = System.currentTimeMillis();
@@ -96,6 +108,7 @@ public class Boss {
         active = false;
         isExploding = false;
         x = -width;
+        hitCount = 0;
     }
 
     public Rect getCollisionShape() {

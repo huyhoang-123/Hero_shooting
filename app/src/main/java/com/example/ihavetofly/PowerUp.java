@@ -28,6 +28,9 @@ public class PowerUp {
     private final Rect collisionRect = new Rect();
     private final int fallSpeed = 250;
 
+    private long spawnTime;
+    private Paint kunaiEffectPaint;
+
     public PowerUp(Resources res, int type) {
         this.type = type;
 
@@ -58,6 +61,13 @@ public class PowerUp {
             height = powerUpBitmap.getHeight();
         }
 
+        if (type == TYPE_KUNAI) {
+            kunaiEffectPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            kunaiEffectPaint.setStyle(Paint.Style.STROKE);
+            kunaiEffectPaint.setStrokeWidth(6f);
+            kunaiEffectPaint.setColor(0xFF00FF00);
+        }
+
         x = -width;
         y = -height;
     }
@@ -70,7 +80,6 @@ public class PowerUp {
         Bitmap scaled = Bitmap.createScaledBitmap(original, width, height, true);
         Bitmap result = createCircularBitmap(scaled, type);
 
-        // CRITICAL FIX: Recycle the scaled bitmap after use
         if (scaled != result && !scaled.isRecycled()) {
             scaled.recycle();
         }
@@ -87,14 +96,13 @@ public class PowerUp {
         Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         Paint imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-        int bgColor, borderColor;
+        int bgColor = 0, borderColor;
         switch (type) {
             case TYPE_SHIELD:
                 bgColor = 0x8000FFFF;
                 borderColor = 0xFF00FFFF;
                 break;
             case TYPE_KUNAI:
-                bgColor = 0x80FF4444;
                 borderColor = 0xFFFF0000;
                 break;
             default:
@@ -102,8 +110,10 @@ public class PowerUp {
                 borderColor = 0xFFFFD700;
         }
 
-        bgPaint.setColor(bgColor);
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5, bgPaint);
+        if (type != TYPE_KUNAI) {
+            bgPaint.setColor(bgColor);
+            canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5, bgPaint);
+        }
 
         borderPaint.setColor(borderColor);
         borderPaint.setStyle(Paint.Style.STROKE);
@@ -127,6 +137,7 @@ public class PowerUp {
         active = true;
         x = startX;
         y = startY;
+        spawnTime = System.currentTimeMillis();
     }
 
     public void update(float deltaTime, int screenY) {
@@ -150,6 +161,27 @@ public class PowerUp {
 
     public Bitmap getBitmap() {
         return powerUpBitmap;
+    }
+
+    public void draw(Canvas canvas, Paint paint) {
+        if (!active || powerUpBitmap == null) return;
+
+        canvas.drawBitmap(powerUpBitmap, x, y, paint);
+
+        if (type == TYPE_KUNAI && kunaiEffectPaint != null) {
+            long elapsed = System.currentTimeMillis() - spawnTime;
+            float pulse = (float) (Math.sin(elapsed / 100.0) * 0.15f + 1f);
+            float radius = (width / 2f) * pulse;
+
+            float centerX = x + width / 2f;
+            float centerY = y + height / 2f;
+
+            float progress = (elapsed % 1000) / 1000f;
+            int alpha = (int) (255 * (1 - progress * 0.3f));
+            kunaiEffectPaint.setAlpha(Math.max(100, alpha));
+
+            canvas.drawCircle(centerX, centerY, radius, kunaiEffectPaint);
+        }
     }
 
     public static void clearCache() {

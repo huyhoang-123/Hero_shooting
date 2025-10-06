@@ -21,10 +21,13 @@ public class Bomb {
 
     public Bomb(Resources res, int screenX, int screenY){
         if (bombBitmap == null) {
-            Bitmap bmp = BitmapCache.get(res, R.drawable.bomb_4, 1);
-            int w = bmp.getWidth() / 8;
-            int h = bmp.getHeight() * w / bmp.getWidth();
-            bombBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
+            Bitmap original = BitmapCache.get(res, R.drawable.bomb_4, 1);
+            int originalWidth = original.getWidth();
+            int originalHeight = original.getHeight();
+
+            int w = originalWidth / 8;
+            int h = originalHeight * w / originalWidth;
+            bombBitmap = Bitmap.createScaledBitmap(original, w, h, true);
         }
 
         width = bombBitmap.getWidth();

@@ -3,6 +3,7 @@ package com.example.ihavetofly;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -10,44 +11,64 @@ import androidx.appcompat.app.AppCompatActivity;
 public class MainActivity extends AppCompatActivity {
 
     private TextView highscore;
+    private TextView totalCoins;
+    private ImageView coinIcon;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Nút Play
         findViewById(R.id.play).setOnClickListener(v -> {
-            startActivity(new Intent(MainActivity.this, GameActivity.class));
+            Intent intent = new Intent(MainActivity.this, GameActivity.class);
+            intent.putExtra("level", 1);
+            startActivity(intent);
         });
 
-        // Hiển thị high score
-        highscore = findViewById(R.id.highScoreTxt);
-        SharedPreferences prefs = getSharedPreferences("game", MODE_PRIVATE);
-        highscore.setText(String.valueOf(prefs.getInt("high_score", 0)));
+        findViewById(R.id.level2Button).setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, GameActivity.class);
+            intent.putExtra("level", 2);
+            startActivity(intent);
+        });
 
-        // Preload bitmap nhẹ
+        findViewById(R.id.guideButton).setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, GuideActivity.class));
+        });
+
+        highscore = findViewById(R.id.highScoreTxt);
+        totalCoins = findViewById(R.id.totalCoinsTxt);
+        coinIcon = findViewById(R.id.coinIcon);
+
+        updateDisplay();
         preloadBitmaps();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        updateDisplay();
+    }
+
+    private void updateDisplay() {
         SharedPreferences prefs = getSharedPreferences("game", MODE_PRIVATE);
-        highscore.setText(String.valueOf(prefs.getInt("high_score", 0)));
+
+        int level1High = prefs.getInt("high_score_level_1", 0);
+        int level2High = prefs.getInt("high_score_level_2", 0);
+
+        int maxHigh = Math.max(level1High, level2High);
+        highscore.setText(String.valueOf(maxHigh));
+
+        totalCoins.setText(String.valueOf(prefs.getInt("total_coins", 0)));
     }
 
     private void preloadBitmaps() {
         int[] ids = new int[]{
-                R.drawable.background,
                 R.drawable.space_ships,
                 R.drawable.bird1,
                 R.drawable.bird2,
                 R.drawable.bird3,
                 R.drawable.bomb_4,
-                R.drawable.bullet,
-                R.drawable.speaker_high_volume,
-                R.drawable.volume_speaker
+                R.drawable.bullet
         };
 
         for (int id : ids) {

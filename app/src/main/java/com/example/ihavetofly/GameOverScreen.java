@@ -69,8 +69,7 @@ public class GameOverScreen {
         if (scoreTmp != scoreIcon) scoreTmp.recycle();
     }
 
-    public void draw(Canvas canvas, int score, Bitmap flightBitmap, int flightX, int flightY, Paint paint) {
-        // --- Draw "Game Over" image ---
+    public void draw(Canvas canvas, int score, Bitmap flightBitmap, int flightX, int flightY, Paint paint, boolean canResume) {
         float gameOverY = screenY * 0.25f - gameOverImage.getHeight() / 2f;
         canvas.drawBitmap(
                 gameOverImage,
@@ -79,51 +78,41 @@ public class GameOverScreen {
                 paint
         );
 
-        // --- Setup text ---
         textPaint.setTextSize(screenY * 0.05f);
         textPaint.setTextAlign(Paint.Align.LEFT);
 
         String scoreText = String.valueOf(score);
 
-        // --- Measure for horizontal centering ---
         float scoreTextWidth = textPaint.measureText(scoreText);
         float totalWidth = iconSize + 20 + scoreTextWidth;
         float startX = (screenX - totalWidth) / 2f;
 
-        // --- Calculate new Y position: slightly above the old one ---
-        float iconTop = gameOverY + gameOverImage.getHeight() + screenY * 0.05f; // closer to GameOver text
+        float iconTop = gameOverY + gameOverImage.getHeight() + screenY * 0.05f;
         float iconCenterY = iconTop + iconSize / 2f;
 
-        // --- Vertical centering fix for text ---
         Paint.FontMetrics fm = textPaint.getFontMetrics();
         float textHeight = fm.bottom - fm.top;
         float textOffset = textHeight / 2 - fm.bottom;
         float textBaseY = iconCenterY + textOffset;
 
-        // --- Draw centered score icon + text ---
         canvas.drawBitmap(scoreIcon, startX, iconTop, paint);
         canvas.drawText(scoreText, startX + iconSize + 20, textBaseY, textPaint);
 
-        // --- Draw flight sprite ---
         if (flightBitmap != null) {
             canvas.drawBitmap(flightBitmap, flightX, flightY, paint);
         }
 
-        // --- Draw buttons below ---
-        drawButtons(canvas);
+        drawButtons(canvas, canResume);
     }
 
-
-
-    private void drawButtons(Canvas canvas) {
+    private void drawButtons(Canvas canvas, boolean canResume) {
         buttonTextPaint.setTextSize(screenY * 0.04f);
         buttonTextPaint.setTextAlign(Paint.Align.CENTER);
 
         Paint.FontMetrics fm = buttonTextPaint.getFontMetrics();
         float textHeight = fm.bottom - fm.top;
-        float textOffset = textHeight / 2 - fm.bottom; // vertical centering adjustment
+        float textOffset = textHeight / 2 - fm.bottom;
 
-        // --- REPLAY BUTTON ---
         LinearGradient replayGradient = new LinearGradient(
                 0, replayButtonRect.top, 0, replayButtonRect.bottom,
                 Color.rgb(255, 180, 0), Color.rgb(255, 100, 0), Shader.TileMode.CLAMP
@@ -137,21 +126,28 @@ public class GameOverScreen {
                 buttonTextPaint
         );
 
-        // --- CONTINUE BUTTON ---
-        LinearGradient contGradient = new LinearGradient(
-                0, continueButtonRect.top, 0, continueButtonRect.bottom,
-                Color.rgb(60, 180, 60), Color.rgb(0, 120, 0), Shader.TileMode.CLAMP
-        );
         Paint contPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        contPaint.setShader(contGradient);
+        if (canResume) {
+            LinearGradient contGradient = new LinearGradient(
+                    0, continueButtonRect.top, 0, continueButtonRect.bottom,
+                    Color.rgb(60, 180, 60), Color.rgb(0, 120, 0), Shader.TileMode.CLAMP
+            );
+            contPaint.setShader(contGradient);
+        } else {
+            contPaint.setColor(Color.rgb(100, 100, 100));
+        }
         canvas.drawRoundRect(new RectF(continueButtonRect), 30, 30, contPaint);
+
+        Paint costTextPaint = new Paint(buttonTextPaint);
+        if (!canResume) {
+            costTextPaint.setColor(Color.rgb(150, 150, 150));
+        }
         canvas.drawText("RESUME",
                 continueButtonRect.centerX(),
                 continueButtonRect.centerY() + textOffset,
-                buttonTextPaint
+                costTextPaint
         );
 
-        // --- EXIT BUTTON ---
         LinearGradient exitGradient = new LinearGradient(
                 0, exitButtonRect.top, 0, exitButtonRect.bottom,
                 Color.rgb(200, 60, 60), Color.rgb(120, 0, 0), Shader.TileMode.CLAMP
@@ -166,12 +162,11 @@ public class GameOverScreen {
         );
     }
 
-
-    public boolean handleTouch(float x, float y, Runnable onReplay, Runnable onContinue, Runnable onExit) {
+    public boolean handleTouch(float x, float y, Runnable onReplay, Runnable onContinue, Runnable onExit, boolean canResume) {
         if (replayButtonRect.contains((int) x, (int) y)) {
             if (onReplay != null) onReplay.run();
             return true;
-        } else if (continueButtonRect.contains((int) x, (int) y)) {
+        } else if (continueButtonRect.contains((int) x, (int) y) && canResume) {
             if (onContinue != null) onContinue.run();
             return true;
         } else if (exitButtonRect.contains((int) x, (int) y)) {
