@@ -38,7 +38,7 @@ public class GameActivity extends Activity {
 
         android.content.Intent intent = new android.content.Intent(this, GameActivity.class);
         intent.putExtra("level", 2);
-        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
 
         try {
             startActivity(intent);
@@ -70,7 +70,6 @@ public class GameActivity extends Activity {
 
         if (gameView != null) {
             gameView.cleanup();
-            BitmapCache.clear();
         }
     }
 }

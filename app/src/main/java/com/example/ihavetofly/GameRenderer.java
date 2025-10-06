@@ -2,7 +2,6 @@ package com.example.ihavetofly;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -45,16 +44,14 @@ public class GameRenderer {
     public void drawGameplay(Canvas canvas, Background bg, Flight flight, ShieldEffect shield,
                              EntityManager entityManager, int score, long gameTime) {
 
-        // Flight character and shield are now drawn by GameView
         drawEntities(canvas, entityManager);
-        // UI drawing is handled by GameView's drawGameplayHUD method
         drawBossUI(canvas, entityManager.getBossManager().getBoss());
     }
 
     private void drawEntities(Canvas canvas, EntityManager entityManager) {
         for (Bullet bullet : entityManager.getBullets()) {
             Bitmap bulletBmp = bullet.getBullet();
-            if (bulletBmp != null) {
+            if (bulletBmp != null && !bulletBmp.isRecycled()) {
                 canvas.drawBitmap(bulletBmp, bullet.x, bullet.y, paint);
             }
         }
@@ -62,7 +59,7 @@ public class GameRenderer {
         for (Bird bird : entityManager.getBirds()) {
             if (!bird.wasShot) {
                 Bitmap birdBmp = bird.getBird();
-                if (birdBmp != null) {
+                if (birdBmp != null && !birdBmp.isRecycled()) {
                     canvas.drawBitmap(birdBmp, bird.x, bird.y, paint);
                 }
             }
@@ -70,12 +67,18 @@ public class GameRenderer {
 
         Bomb bomb = entityManager.getBomb();
         if (bomb.active) {
-            canvas.drawBitmap(bomb.getBitmap(), bomb.x, bomb.y, paint);
+            Bitmap bombBmp = bomb.getBitmap();
+            if (bombBmp != null && !bombBmp.isRecycled()) {
+                canvas.drawBitmap(bombBmp, bomb.x, bomb.y, paint);
+            }
         }
 
         for (Coin coin : entityManager.getCoins()) {
             if (coin.active) {
-                canvas.drawBitmap(coin.getBitmap(), coin.x, coin.y, paint);
+                Bitmap coinBmp = coin.getBitmap();
+                if (coinBmp != null && !coinBmp.isRecycled()) {
+                    canvas.drawBitmap(coinBmp, coin.x, coin.y, paint);
+                }
             }
         }
 
@@ -87,16 +90,21 @@ public class GameRenderer {
 
         Boss boss = entityManager.getBossManager().getBoss();
         if (boss.active) {
-            canvas.drawBitmap(boss.getBitmap(), boss.x, boss.y, paint);
+            Bitmap bossBmp = boss.getBitmap();
+            if (bossBmp != null && !bossBmp.isRecycled()) {
+                canvas.drawBitmap(bossBmp, boss.x, boss.y, paint);
+            }
         }
 
         for (Rocket rocket : entityManager.getBossManager().getRockets()) {
             if (rocket.active) {
-                canvas.drawBitmap(rocket.getBitmap(), rocket.x, rocket.y, paint);
+                Bitmap rocketBmp = rocket.getBitmap();
+                if (rocketBmp != null && !rocketBmp.isRecycled()) {
+                    canvas.drawBitmap(rocketBmp, rocket.x, rocket.y, paint);
+                }
             }
         }
     }
-
 
     private void drawBossUI(Canvas canvas, Boss boss) {
         if (!boss.active || boss.isExploding) return;
@@ -126,6 +134,5 @@ public class GameRenderer {
     }
 
     public void cleanup() {
-        // No resources to clean up
     }
 }

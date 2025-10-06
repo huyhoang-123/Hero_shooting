@@ -15,23 +15,34 @@ public class Bomb {
     public boolean isRespawnBomb = false;
 
     private static Bitmap bombBitmap;
+    private static final Object bitmapLock = new Object();
     private Random random;
 
     private final Rect collisionRect = new Rect();
 
     public Bomb(Resources res, int screenX, int screenY){
-        if (bombBitmap == null) {
-            Bitmap original = BitmapCache.get(res, R.drawable.bomb_4, 1);
-            int originalWidth = original.getWidth();
-            int originalHeight = original.getHeight();
+        synchronized (bitmapLock) {
+            if (bombBitmap == null || bombBitmap.isRecycled()) {
+                Bitmap original = BitmapCache.get(res, R.drawable.bomb_4, 1);
+                if (original != null) {
+                    int originalWidth = original.getWidth();
+                    int originalHeight = original.getHeight();
 
-            int w = originalWidth / 8;
-            int h = originalHeight * w / originalWidth;
-            bombBitmap = Bitmap.createScaledBitmap(original, w, h, true);
+                    int w = originalWidth / 8;
+                    int h = originalHeight * w / originalWidth;
+                    bombBitmap = Bitmap.createScaledBitmap(original, w, h, true);
+                }
+            }
+
+            if (bombBitmap != null && !bombBitmap.isRecycled()) {
+                width = bombBitmap.getWidth();
+                height = bombBitmap.getHeight();
+            } else {
+                width = 50;
+                height = 50;
+            }
         }
 
-        width = bombBitmap.getWidth();
-        height = bombBitmap.getHeight();
         random = new Random();
         x = -width;
         y = -height;
@@ -63,13 +74,17 @@ public class Bomb {
     }
 
     public Bitmap getBitmap(){
-        return bombBitmap;
+        synchronized (bitmapLock) {
+            return bombBitmap;
+        }
     }
 
     public static void clearCache() {
-        if (bombBitmap != null && !bombBitmap.isRecycled()) {
-            bombBitmap.recycle();
-            bombBitmap = null;
+        synchronized (bitmapLock) {
+            if (bombBitmap != null && !bombBitmap.isRecycled()) {
+                bombBitmap.recycle();
+                bombBitmap = null;
+            }
         }
     }
 }

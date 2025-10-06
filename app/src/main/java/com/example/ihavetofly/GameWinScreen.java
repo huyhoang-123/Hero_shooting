@@ -131,7 +131,7 @@ public class GameWinScreen {
         Paint nextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         nextPaint.setShader(nextGradient);
         canvas.drawRoundRect(new RectF(nextLevelButtonRect), 30, 30, nextPaint);
-        canvas.drawText("NEXT LEVEL",
+        canvas.drawText("LEVEL 2",
                 nextLevelButtonRect.centerX(),
                 nextLevelButtonRect.centerY() + textOffset,
                 buttonTextPaint

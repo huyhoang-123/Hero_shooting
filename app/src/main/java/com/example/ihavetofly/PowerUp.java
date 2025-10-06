@@ -29,17 +29,17 @@ public class PowerUp {
     private final int fallSpeed = 250;
 
     private long spawnTime;
-    private Paint kunaiEffectPaint;
+    private Paint effectPaint;
 
     public PowerUp(Resources res, int type) {
         this.type = type;
 
         if (type == TYPE_DOUBLE_BULLET && doubleBulletBitmap == null) {
-            doubleBulletBitmap = createPowerUpBitmap(res, R.drawable.double_bullet, type, true);
+            doubleBulletBitmap = createPowerUpBitmap(res, R.drawable.double_bullet, type);
         } else if (type == TYPE_KUNAI && kunaiBitmap == null) {
-            kunaiBitmap = createPowerUpBitmap(res, R.drawable.kunai, type, false);
+            kunaiBitmap = createPowerUpBitmap(res, R.drawable.kunai, type);
         } else if (type == TYPE_SHIELD && shieldBitmap == null) {
-            shieldBitmap = createPowerUpBitmap(res, R.drawable.shield, type, false);
+            shieldBitmap = createPowerUpBitmap(res, R.drawable.shield, type);
         }
 
         switch (type) {
@@ -61,20 +61,29 @@ public class PowerUp {
             height = powerUpBitmap.getHeight();
         }
 
-        if (type == TYPE_KUNAI) {
-            kunaiEffectPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            kunaiEffectPaint.setStyle(Paint.Style.STROKE);
-            kunaiEffectPaint.setStrokeWidth(6f);
-            kunaiEffectPaint.setColor(0xFF00FF00);
+        if (type == TYPE_KUNAI || type == TYPE_DOUBLE_BULLET) {
+            effectPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            effectPaint.setStyle(Paint.Style.STROKE);
+            effectPaint.setStrokeWidth(6f);
+            effectPaint.setColor(type == TYPE_KUNAI ? 0xFF00FF00 : 0xFFFFD700);
         }
 
         x = -width;
         y = -height;
     }
 
-    private Bitmap createPowerUpBitmap(Resources res, int resId, int type, boolean isDoubleBullet) {
+    private Bitmap createPowerUpBitmap(Resources res, int resId, int type) {
         Bitmap original = BitmapCache.get(res, resId, 1);
-        int width = isDoubleBullet ? original.getWidth() / 8 : original.getWidth() / 5;
+
+        // Different sizes for different types
+        int width;
+        if (type == TYPE_DOUBLE_BULLET) {
+            // 70% of the standard size
+            width = (int) ((original.getWidth() / 10) * 0.7f);
+        } else {
+            width = original.getWidth() / 5;
+        }
+
         int height = original.getHeight() * width / original.getWidth();
 
         Bitmap scaled = Bitmap.createScaledBitmap(original, width, height, true);
@@ -105,12 +114,15 @@ public class PowerUp {
             case TYPE_KUNAI:
                 borderColor = 0xFFFF0000;
                 break;
+            case TYPE_DOUBLE_BULLET:
+                borderColor = 0xFFFFD700;
+                break;
             default:
                 bgColor = 0x80FFFFFF;
                 borderColor = 0xFFFFD700;
         }
 
-        if (type != TYPE_KUNAI) {
+        if (type != TYPE_KUNAI && type != TYPE_DOUBLE_BULLET) {
             bgPaint.setColor(bgColor);
             canvas.drawCircle(size / 2f, size / 2f, size / 2f - 5, bgPaint);
         }
@@ -168,7 +180,7 @@ public class PowerUp {
 
         canvas.drawBitmap(powerUpBitmap, x, y, paint);
 
-        if (type == TYPE_KUNAI && kunaiEffectPaint != null) {
+        if ((type == TYPE_KUNAI || type == TYPE_DOUBLE_BULLET) && effectPaint != null) {
             long elapsed = System.currentTimeMillis() - spawnTime;
             float pulse = (float) (Math.sin(elapsed / 100.0) * 0.15f + 1f);
             float radius = (width / 2f) * pulse;
@@ -178,9 +190,9 @@ public class PowerUp {
 
             float progress = (elapsed % 1000) / 1000f;
             int alpha = (int) (255 * (1 - progress * 0.3f));
-            kunaiEffectPaint.setAlpha(Math.max(100, alpha));
+            effectPaint.setAlpha(Math.max(100, alpha));
 
-            canvas.drawCircle(centerX, centerY, radius, kunaiEffectPaint);
+            canvas.drawCircle(centerX, centerY, radius, effectPaint);
         }
     }
 
