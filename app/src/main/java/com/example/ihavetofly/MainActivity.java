@@ -43,6 +43,15 @@ public class MainActivity extends AppCompatActivity {
 
         // Exit game button
         findViewById(R.id.exitButton).setOnClickListener(v -> {
+            // Giải phóng tài nguyên đồ họa toàn cục trước khi thoát hẳn app
+            BossManager.clearCache();
+            Bomb.clearCache();
+            Rocket.clearCache();
+            Bird.clearCache();
+            Coin.clearCache();
+            PowerUp.clearCache();
+            Bullet.clearCache();
+            GameAudioManager.getInstance(this).release();
             finishAffinity();
         });
 

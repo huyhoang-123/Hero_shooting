@@ -62,6 +62,11 @@ public class GameActivity extends Activity {
         }
         // Start new audio session to avoid previous Activity pausing this one
         audioSessionId = GameAudioManager.getInstance(this).startSession();
+        // Ensure background music is unmuted and playing for new level
+        GameAudioManager audio = GameAudioManager.getInstance(this);
+        audio.setAllMuted(false);
+        audio.setMusicMuted(false);
+        audio.playBackground();
     }
 
     @Override

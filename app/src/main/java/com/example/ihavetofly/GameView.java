@@ -536,20 +536,10 @@ public class GameView extends SurfaceView implements Runnable {
 
     public void cleanup() {
         gameState.isPlaying = false;
-        if (audioManager != null) audioManager.pauseBackground();
         if (gameOverScreen != null) gameOverScreen.cleanup();
         if (gameWinScreen != null) gameWinScreen.cleanup();
         if (renderer != null) renderer.cleanup();
-        if (scoreIcon != null && !scoreIcon.isRecycled()) scoreIcon.recycle();
-        if (timeIcon != null && !timeIcon.isRecycled()) timeIcon.recycle();
-        if (coinIcon != null && !coinIcon.isRecycled()) coinIcon.recycle();
-        if (gameOverBitmap != null && !gameOverBitmap.isRecycled()) gameOverBitmap.recycle();
-
-        Bird.clearCache();
-        Coin.clearCache();
-        Bomb.clearCache();
-        PowerUp.clearCache();
-        BossManager.clearCache();
-        Bullet.clearCache();
+        // Không recycle/global clear cache ở đây để tránh recycle bitmap giữa lúc tạo Activity mới
+        // Các tài nguyên sẽ được giải phóng khi thật sự thoát app (nút Exit)
     }
 }

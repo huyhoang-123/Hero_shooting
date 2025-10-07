@@ -30,8 +30,8 @@ public class VolumeButton {
                 topMargin + btnSize
         );
 
-        volumeOn = getBitmap(ctx, R.drawable.baseline_volume_up_24, btnSize, btnSize);
-        volumeOff = getBitmap(ctx, R.drawable.baseline_volume_mute_24, btnSize, btnSize);
+        volumeOn = getBitmap(ctx, R.drawable.volume_on, btnSize, btnSize);
+        volumeOff = getBitmap(ctx, R.drawable.volume_off, btnSize, btnSize);
 
         currentVolume = volumeOn;
     }
@@ -52,8 +52,8 @@ public class VolumeButton {
     }
 
     public boolean handleTouch(float x, float y) {
-        // Expanded touch area for better responsiveness
-        int expandedMargin = 30;
+        // Expanded touch area for better responsiveness (scale with button size)
+        int expandedMargin = Math.max(30, volumeRect.height() / 2);
         Rect expandedRect = new Rect(
                 volumeRect.left - expandedMargin,
                 volumeRect.top - expandedMargin,
