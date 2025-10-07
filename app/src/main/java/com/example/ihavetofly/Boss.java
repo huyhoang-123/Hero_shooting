@@ -17,6 +17,7 @@ public class Boss {
     private static Bitmap bossBitmap;
     private static Bitmap bossExplodeBitmap;
     private static Bitmap bossLv3Bitmap;
+    private static Bitmap bossLv3ExplodeBitmap;
     private static final int MOVE_SPEED = 300;
     private static final int REQUIRED_HITS = 100;
     private static final long EXPLODE_ANIMATION_DURATION = 1000;
@@ -49,6 +50,13 @@ public class Boss {
             int w = screenX / 2;
             int h = bmp.getHeight() * w / bmp.getWidth();
             bossLv3Bitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
+        }
+
+        if (bossLv3ExplodeBitmap == null) {
+            Bitmap bmp = BitmapCache.get(res, R.drawable.boss_lv3_explode, 1);
+            int w = screenX / 2;
+            int h = bmp.getHeight() * w / bmp.getWidth();
+            bossLv3ExplodeBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
         }
 
         width = bossBitmap.getWidth();
@@ -133,7 +141,7 @@ public class Boss {
 
     public Bitmap getBitmap() {
         if (isExploding) {
-            return bossExplodeBitmap;
+            return (level == 3) ? bossLv3ExplodeBitmap : bossExplodeBitmap;
         }
         return (level == 3) ? bossLv3Bitmap : bossBitmap;
     }
@@ -154,6 +162,10 @@ public class Boss {
         if (bossLv3Bitmap != null && !bossLv3Bitmap.isRecycled()) {
             bossLv3Bitmap.recycle();
             bossLv3Bitmap = null;
+        }
+        if (bossLv3ExplodeBitmap != null && !bossLv3ExplodeBitmap.isRecycled()) {
+            bossLv3ExplodeBitmap.recycle();
+            bossLv3ExplodeBitmap = null;
         }
     }
 }

@@ -54,7 +54,7 @@ public class GameView extends SurfaceView implements Runnable {
         prefs = activity.getSharedPreferences("game", GameActivity.MODE_PRIVATE);
 
         audioManager = GameAudioManager.getInstance(activity);
-        background = new Background(getResources(), R.drawable.infinity_bg, screenY);
+        background = new Background(getResources(), R.drawable.bg_star, screenY);
         flight = new Flight(screenX, screenY, getResources());
 
         entityManager = new EntityManager(getResources(), screenX, screenY, flight);
