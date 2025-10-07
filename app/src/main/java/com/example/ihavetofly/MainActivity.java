@@ -41,6 +41,11 @@ public class MainActivity extends AppCompatActivity {
             startActivity(new Intent(MainActivity.this, GuideActivity.class));
         });
 
+        // Exit game button
+        findViewById(R.id.exitButton).setOnClickListener(v -> {
+            finishAffinity();
+        });
+
         highscore = findViewById(R.id.highScoreTxt);
         totalCoins = findViewById(R.id.totalCoinsTxt);
         coinIcon = findViewById(R.id.coinIcon);

@@ -31,38 +31,50 @@ public class Boss {
         this.screenX = screenX;
         this.screenY = screenY;
 
-        if (bossBitmap == null) {
-            Bitmap bmp = BitmapCache.get(res, R.drawable.boss, 1);
-            int w = screenX / 2;
-            int h = bmp.getHeight() * w / bmp.getWidth();
-            bossBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
-        }
-
-        if (bossExplodeBitmap == null) {
-            Bitmap bmp = BitmapCache.get(res, R.drawable.boss_explode_nobg, 1);
-            int w = screenX / 2;
-            int h = bmp.getHeight() * w / bmp.getWidth();
-            bossExplodeBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
-        }
-
-        if (bossLv3Bitmap == null) {
-            Bitmap bmp = BitmapCache.get(res, R.drawable.boss_lv3, 1);
-            int w = screenX / 2;
-            int h = bmp.getHeight() * w / bmp.getWidth();
-            bossLv3Bitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
-        }
-
-        if (bossLv3ExplodeBitmap == null) {
-            Bitmap bmp = BitmapCache.get(res, R.drawable.boss_lv3_explode, 1);
-            int w = screenX / 2;
-            int h = bmp.getHeight() * w / bmp.getWidth();
-            bossLv3ExplodeBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
-        }
+        ensureBitmaps(res, screenX);
 
         width = bossBitmap.getWidth();
         height = bossBitmap.getHeight();
         y = screenY / 6;
         x = -width;
+    }
+
+    public static synchronized void ensureBitmaps(Resources res, int screenX) {
+        if (bossBitmap == null || bossBitmap.isRecycled()) {
+            Bitmap bmp = BitmapCache.get(res, R.drawable.boss, 1);
+            if (bmp != null) {
+                int w = screenX / 2;
+                int h = bmp.getHeight() * w / bmp.getWidth();
+                bossBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
+            }
+        }
+
+        if (bossExplodeBitmap == null || bossExplodeBitmap.isRecycled()) {
+            Bitmap bmp = BitmapCache.get(res, R.drawable.boss_explode_nobg, 1);
+            if (bmp != null) {
+                int w = screenX / 2;
+                int h = bmp.getHeight() * w / bmp.getWidth();
+                bossExplodeBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
+            }
+        }
+
+        if (bossLv3Bitmap == null || bossLv3Bitmap.isRecycled()) {
+            Bitmap bmp = BitmapCache.get(res, R.drawable.boss_lv3, 1);
+            if (bmp != null) {
+                int w = screenX / 2;
+                int h = bmp.getHeight() * w / bmp.getWidth();
+                bossLv3Bitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
+            }
+        }
+
+        if (bossLv3ExplodeBitmap == null || bossLv3ExplodeBitmap.isRecycled()) {
+            Bitmap bmp = BitmapCache.get(res, R.drawable.boss_lv3_explode, 1);
+            if (bmp != null) {
+                int w = screenX / 2;
+                int h = bmp.getHeight() * w / bmp.getWidth();
+                bossLv3ExplodeBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
+            }
+        }
     }
 
     public void setLevel(int level) {

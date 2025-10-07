@@ -22,17 +22,7 @@ public class Bomb {
 
     public Bomb(Resources res, int screenX, int screenY){
         synchronized (bitmapLock) {
-            if (bombBitmap == null || bombBitmap.isRecycled()) {
-                Bitmap original = BitmapCache.get(res, R.drawable.bomb_4, 1);
-                if (original != null) {
-                    int originalWidth = original.getWidth();
-                    int originalHeight = original.getHeight();
-
-                    int w = originalWidth / 8;
-                    int h = originalHeight * w / originalWidth;
-                    bombBitmap = Bitmap.createScaledBitmap(original, w, h, true);
-                }
-            }
+            ensureBitmap(res);
 
             if (bombBitmap != null && !bombBitmap.isRecycled()) {
                 width = bombBitmap.getWidth();
@@ -84,6 +74,21 @@ public class Bomb {
             if (bombBitmap != null && !bombBitmap.isRecycled()) {
                 bombBitmap.recycle();
                 bombBitmap = null;
+            }
+        }
+    }
+
+    public static void ensureBitmap(Resources res) {
+        synchronized (bitmapLock) {
+            if (bombBitmap == null || bombBitmap.isRecycled()) {
+                Bitmap original = BitmapCache.get(res, R.drawable.bomb_4, 1);
+                if (original != null) {
+                    int originalWidth = original.getWidth();
+                    int originalHeight = original.getHeight();
+                    int w = originalWidth / 8;
+                    int h = originalHeight * w / originalWidth;
+                    bombBitmap = Bitmap.createScaledBitmap(original, w, h, true);
+                }
             }
         }
     }

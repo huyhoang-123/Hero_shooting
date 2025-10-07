@@ -14,8 +14,10 @@ public class VolumeButton {
     private Bitmap currentVolume;
     private Rect volumeRect;
     private boolean volumeMuted = false;
+    private final Context appContext;
 
     public VolumeButton(Context ctx, int screenX, int screenY) {
+        this.appContext = ctx.getApplicationContext();
         int btnSize = screenY / 12;
         int margin = 20;
 
@@ -62,6 +64,10 @@ public class VolumeButton {
         if (expandedRect.contains((int) x, (int) y)) {
             volumeMuted = !volumeMuted;
             currentVolume = volumeMuted ? volumeOff : volumeOn;
+            // Update audio manager mutes via global singleton
+            GameAudioManager mgr = GameAudioManager.getInstance(appContext);
+            mgr.setAllMuted(volumeMuted);
+            mgr.setMusicMuted(volumeMuted);
             return true;
         }
         return false;

@@ -97,6 +97,12 @@ public class BossBullet {
     public void update(float deltaTime, int screenY) {
         if (!active) return;
 
+        // If frames were cleared while this bullet is still alive, deactivate safely
+        if (bulletFrames == null || bulletFrames.length == 0) {
+            clear();
+            return;
+        }
+
         y += (int) (FALL_SPEED * deltaTime);
 
         // Update animation frame for fire effect

@@ -15,12 +15,7 @@ public class Rocket {
     private static final int FALL_SPEED = 400;
 
     public Rocket(Resources res) {
-        if (rocketBitmap == null) {
-            Bitmap bmp = BitmapCache.get(res, R.drawable.rocket, 1);
-            int w = bmp.getWidth() / 6;
-            int h = bmp.getHeight() * w / bmp.getWidth();
-            rocketBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
-        }
+        ensureBitmap(res);
 
         width = rocketBitmap.getWidth();
         height = rocketBitmap.getHeight();
@@ -61,6 +56,17 @@ public class Rocket {
         if (rocketBitmap != null && !rocketBitmap.isRecycled()) {
             rocketBitmap.recycle();
             rocketBitmap = null;
+        }
+    }
+
+    public static synchronized void ensureBitmap(Resources res) {
+        if (rocketBitmap == null || rocketBitmap.isRecycled()) {
+            Bitmap bmp = BitmapCache.get(res, R.drawable.rocket, 1);
+            if (bmp != null) {
+                int w = bmp.getWidth() / 6;
+                int h = bmp.getHeight() * w / bmp.getWidth();
+                rocketBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
+            }
         }
     }
 }

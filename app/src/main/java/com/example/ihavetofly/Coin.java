@@ -17,7 +17,7 @@ public class Coin {
     public Coin(Resources res){
         if (coinBitmap == null) {
             Bitmap bmp = BitmapCache.get(res, R.drawable.coin1, 1);
-            int w = bmp.getWidth() / 6;
+            int w = bmp.getWidth() / 8;
             int h = bmp.getHeight() * w / bmp.getWidth();
             coinBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
         }

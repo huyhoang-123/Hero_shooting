@@ -65,6 +65,10 @@ public class GameWinScreen {
 
     private void loadImages() {
         Bitmap tmp = BitmapFactory.decodeResource(resources, R.drawable.congratulations);
+        if (tmp == null) {
+            winImage = null;
+            return;
+        }
         int imgWidth = screenX / 2;
         int imgHeight = tmp.getHeight() * imgWidth / tmp.getWidth();
         winImage = Bitmap.createScaledBitmap(tmp, imgWidth, imgHeight, true);
@@ -72,7 +76,12 @@ public class GameWinScreen {
     }
 
     public void draw(Canvas canvas, List<Integer> highScores, Paint paint, boolean isLevel3) {
-        canvas.drawBitmap(winImage, screenX / 2f - winImage.getWidth() / 2f, screenY * 0.15f, paint);
+        if (winImage == null || winImage.isRecycled()) {
+            loadImages();
+        }
+        if (winImage != null && !winImage.isRecycled()) {
+            canvas.drawBitmap(winImage, screenX / 2f - winImage.getWidth() / 2f, screenY * 0.15f, paint);
+        }
 
         if (!isLevel3) {
             drawHighScoreTable(canvas, highScores);

@@ -16,6 +16,7 @@ public class GameAudioManager {
     private boolean musicMuted = false;
     private boolean allMuted = false;
     private boolean isReady = false;
+    private long currentSessionId = 0;
 
     private GameAudioManager(Context context) {
         initSoundPool(context);
@@ -48,13 +49,23 @@ public class GameAudioManager {
             backgroundPlayer.setLooping(true);
             backgroundPlayer.setVolume(0.7f, 0.7f); // Giảm volume một chút
 
-            // Set listener để biết khi nào ready
+            // MediaPlayer.create() trả về player đã ở trạng thái prepared,
+            // nên đánh dấu sẵn sàng ngay và phát nhạc nếu không tắt tiếng.
+            isReady = true;
+            if (!musicMuted && !allMuted) {
+                try {
+                    backgroundPlayer.start();
+                } catch (IllegalStateException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            // Listener dự phòng (một số thiết bị vẫn gọi onPrepared)
             backgroundPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                 @Override
                 public void onPrepared(MediaPlayer mp) {
                     isReady = true;
-                    // Auto-start background music khi ready
-                    if (!musicMuted && !allMuted) {
+                    if (!musicMuted && !allMuted && !mp.isPlaying()) {
                         mp.start();
                     }
                 }
@@ -101,6 +112,19 @@ public class GameAudioManager {
             } catch (IllegalStateException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    // Session-based control to avoid old Activity pausing new Activity's music
+    public synchronized long startSession() {
+        currentSessionId++;
+        playBackground();
+        return currentSessionId;
+    }
+
+    public synchronized void endSession(long sessionId) {
+        if (sessionId == currentSessionId) {
+            pauseBackground();
         }
     }
 

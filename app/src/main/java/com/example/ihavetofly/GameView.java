@@ -83,6 +83,10 @@ public class GameView extends SurfaceView implements Runnable {
             public void surfaceCreated(SurfaceHolder holder) {
                 audioManager.prepare();
                 audioManager.playBackground();
+                // Preload/ensure graphics resources on surface available
+                Boss.ensureBitmaps(getResources(), screenX);
+                Bomb.ensureBitmap(getResources());
+                Rocket.ensureBitmap(getResources());
             }
 
             @Override
@@ -119,7 +123,19 @@ public class GameView extends SurfaceView implements Runnable {
         gameState.setLevel(level);
         scoreManager.setLevel(level);
         entityManager.setLevel(level);
+        // Reset session flags/timers to avoid carrying over state between levels
+        bossDefeatedThisSession = false;
+        gameState.isWin = false;
+        gameState.hasShownWinScreen = false;
+        gameState.isGameOver = false;
+        gameState.startTime = System.currentTimeMillis();
         gameState.sessionStartHighScore = scoreManager.getSessionStartHighScore();
+        // Reset entities so boss/bombs/birds state is clean for the new level
+        entityManager.reset(gameState.speedMultiplier);
+        // Ensure required bitmaps are ready after level change
+        Boss.ensureBitmaps(getResources(), screenX);
+        Bomb.ensureBitmap(getResources());
+        Rocket.ensureBitmap(getResources());
     }
 
     @Override
@@ -520,7 +536,7 @@ public class GameView extends SurfaceView implements Runnable {
 
     public void cleanup() {
         gameState.isPlaying = false;
-        if (audioManager != null) audioManager.release();
+        if (audioManager != null) audioManager.pauseBackground();
         if (gameOverScreen != null) gameOverScreen.cleanup();
         if (gameWinScreen != null) gameWinScreen.cleanup();
         if (renderer != null) renderer.cleanup();
