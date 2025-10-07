@@ -13,6 +13,8 @@ public class GameConfig {
     public static final int BASE_BIRD_SPEED_RANGE = 150;
 
     public static float getSpeedMultiplier(int level) {
-        return level == 2 ? 2.0f : 1.0f;
+        if (level == 2) return 2.0f;
+        if (level == 3) return 1.5f;
+        return 1.0f;
     }
 }

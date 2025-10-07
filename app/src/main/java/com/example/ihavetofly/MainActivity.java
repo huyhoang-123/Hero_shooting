@@ -31,6 +31,12 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        findViewById(R.id.level3Button).setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, GameActivity.class);
+            intent.putExtra("level", 3);
+            startActivity(intent);
+        });
+
         findViewById(R.id.guideButton).setOnClickListener(v -> {
             startActivity(new Intent(MainActivity.this, GuideActivity.class));
         });
@@ -54,8 +60,9 @@ public class MainActivity extends AppCompatActivity {
 
         int level1High = prefs.getInt("high_score_level_1", 0);
         int level2High = prefs.getInt("high_score_level_2", 0);
+        int level3High = prefs.getInt("high_score_level_3", 0);
 
-        int maxHigh = Math.max(level1High, level2High);
+        int maxHigh = Math.max(level1High, Math.max(level2High, level3High));
         highscore.setText(String.valueOf(maxHigh));
 
         totalCoins.setText(String.valueOf(prefs.getInt("total_coins", 0)));
@@ -68,7 +75,9 @@ public class MainActivity extends AppCompatActivity {
                 R.drawable.bird2,
                 R.drawable.bird3,
                 R.drawable.bomb_4,
-                R.drawable.bullet
+                R.drawable.bullet,
+                R.drawable.boss_lv3,
+                R.drawable.boss_bullet
         };
 
         for (int id : ids) {

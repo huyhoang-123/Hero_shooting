@@ -31,13 +31,13 @@ public class GameActivity extends Activity {
         setContentView(gameView);
     }
 
-    public void startLevel2() {
+    public void startLevel(int level) {
         if (gameView != null) {
             gameView.pause();
         }
 
         android.content.Intent intent = new android.content.Intent(this, GameActivity.class);
-        intent.putExtra("level", 2);
+        intent.putExtra("level", level);
         intent.setFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
 
         try {
@@ -46,6 +46,11 @@ public class GameActivity extends Activity {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    // Keep for backward compatibility
+    public void startLevel2() {
+        startLevel(2);
     }
 
     @Override

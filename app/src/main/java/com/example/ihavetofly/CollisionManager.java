@@ -51,17 +51,27 @@ public class CollisionManager {
     private void spawnDrops(Bird bird, List<Coin> coins, List<PowerUp> powerUps, android.content.res.Resources res) {
         int dropChance = random.nextInt(100);
 
-        if (dropChance < 30) {
+        // FIXED: Adjusted drop rates
+        // Coins: 70% (was 30%)
+        // Double Bullet: 10% (was 25%)
+        // Kunai: 10% (was 25%)
+        // Shield: 10% (was 20%)
+
+        if (dropChance < 70) {
+            // 70% chance to drop coin
             Coin c = new Coin(res);
             int spawnX = bird.x + bird.width / 2 - (c.width / 2);
             int spawnY = bird.y + bird.height / 2 - (c.height / 2);
             c.spawnAt(spawnX, spawnY);
             coins.add(c);
-        } else if (dropChance < 55) {
-            spawnPowerUp(bird, PowerUp.TYPE_DOUBLE_BULLET, powerUps, res);
         } else if (dropChance < 80) {
+            // 10% chance for double bullet
+            spawnPowerUp(bird, PowerUp.TYPE_DOUBLE_BULLET, powerUps, res);
+        } else if (dropChance < 90) {
+            // 10% chance for kunai
             spawnPowerUp(bird, PowerUp.TYPE_KUNAI, powerUps, res);
         } else {
+            // 10% chance for shield
             spawnPowerUp(bird, PowerUp.TYPE_SHIELD, powerUps, res);
         }
     }
@@ -92,12 +102,12 @@ public class CollisionManager {
         return Rect.intersects(tempRect, bomb.getCollisionShape());
     }
 
-    public boolean checkBossCollisions(Boss boss, List<Rocket> rockets, Flight flight) {
-        if (!boss.active || boss.isExploding || flight.hasShield()) return false;
+    public boolean checkBossCollisions(Boss boss, List<Rocket> rockets, List<BossBullet> bossBullets, Flight flight) {
+        if (flight.hasShield()) return false;
 
         tempRect.set(flight.x, flight.y, flight.x + flight.width, flight.y + flight.height);
 
-        if (Rect.intersects(boss.getCollisionShape(), tempRect)) {
+        if (boss.active && !boss.isExploding && Rect.intersects(boss.getCollisionShape(), tempRect)) {
             return true;
         }
 
@@ -106,6 +116,13 @@ public class CollisionManager {
                 return true;
             }
         }
+
+        for (BossBullet bullet : bossBullets) {
+            if (bullet.active && Rect.intersects(bullet.getCollisionShape(), tempRect)) {
+                return true;
+            }
+        }
+
         return false;
     }
 

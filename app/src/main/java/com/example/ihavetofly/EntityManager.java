@@ -21,6 +21,7 @@ public class EntityManager {
     private long lastBombSpawnTime = 0;
     private final Random random;
     private final int screenX, screenY;
+    private int currentLevel = 1;
 
     public EntityManager(Resources res, int screenX, int screenY, Flight flight) {
         this.resources = res;
@@ -37,6 +38,11 @@ public class EntityManager {
 
         birds = new Bird[6];
         initBirds();
+    }
+
+    public void setLevel(int level) {
+        this.currentLevel = level;
+        bossManager.setLevel(level);
     }
 
     private void initBirds() {
@@ -122,9 +128,6 @@ public class EntityManager {
 
         bird.wasShot = false;
         bird.y = -bird.height - random.nextInt(Math.max(1, screenY / 3));
-
-        // Spawn birds at random positions across the screen, not relative to flight position
-        // This prevents immediate collision during game reset
         bird.x = random.nextInt(Math.max(1, screenX - bird.width));
         bird.speed = (int) ((GameConfig.BASE_BIRD_MIN_SPEED +
                 random.nextInt(GameConfig.BASE_BIRD_SPEED_RANGE)) * speedMultiplier);
@@ -143,10 +146,13 @@ public class EntityManager {
         bullets.clear();
         coins.clear();
         powerUps.clear();
-        bomb.clear(); // Clear the bomb to prevent immediate collision
-        lastBombSpawnTime = System.currentTimeMillis(); // Reset bomb spawn timer
+        bomb.clear();
+        lastBombSpawnTime = System.currentTimeMillis();
         bossManager.reset();
-        for (Bird b : birds) respawnBird(b, speedMultiplier);
+
+        if (currentLevel != 3) {
+            for (Bird b : birds) respawnBird(b, speedMultiplier);
+        }
     }
 
     public List<Bullet> getBullets() { return bullets; }

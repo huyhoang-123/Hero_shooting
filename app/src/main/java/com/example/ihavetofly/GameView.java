@@ -11,7 +11,7 @@ import android.view.SurfaceView;
 
 public class GameView extends SurfaceView implements Runnable {
 
-    private Thread thread;
+    private volatile Thread thread;
     private final GameState gameState;
     private final GameActivity activity;
     private final SharedPreferences prefs;
@@ -118,6 +118,7 @@ public class GameView extends SurfaceView implements Runnable {
     public void setLevel(int level) {
         gameState.setLevel(level);
         scoreManager.setLevel(level);
+        entityManager.setLevel(level);
         gameState.sessionStartHighScore = scoreManager.getSessionStartHighScore();
     }
 
@@ -166,12 +167,16 @@ public class GameView extends SurfaceView implements Runnable {
 
         entityManager.updateBullets(deltaTime);
 
-        if (!entityManager.getBossManager().getBoss().active) {
-            entityManager.updateBirds(deltaTime, gameState.speedMultiplier);
+        // Level 3: No birds or bombs
+        if (gameState.currentLevel != 3) {
+            if (!entityManager.getBossManager().getBoss().active) {
+                entityManager.updateBirds(deltaTime, gameState.speedMultiplier);
+            }
+
+            int bombSpeed = (int) (GameConfig.BASE_BOMB_SPEED * gameState.speedMultiplier);
+            entityManager.updateBomb(currentTime, deltaTime, bombSpeed);
         }
 
-        int bombSpeed = (int) (GameConfig.BASE_BOMB_SPEED * gameState.speedMultiplier);
-        entityManager.updateBomb(currentTime, deltaTime, bombSpeed);
         entityManager.updateCoins(deltaTime);
         entityManager.updatePowerUps(deltaTime);
 
@@ -181,16 +186,25 @@ public class GameView extends SurfaceView implements Runnable {
 
     private void updateBoss(long currentTime, float deltaTime) {
         BossManager bossManager = entityManager.getBossManager();
-        boolean allBirdsGone = entityManager.areAllBirdsGone();
 
-        if (bossManager.shouldSpawnBoss(currentTime)) {
-            if (allBirdsGone) {
+        if (gameState.currentLevel == 3) {
+            // Level 3: Boss spawns immediately
+            if (!bossManager.getBoss().active && !bossDefeatedThisSession) {
                 bossManager.spawnBoss();
-            } else {
-                bossManager.setWaitingForBirdsToClear(true);
             }
-        } else if (bossManager.isWaitingForBirdsToClear() && allBirdsGone) {
-            bossManager.spawnBoss();
+        } else {
+            // Level 1 & 2: Normal boss spawn logic
+            boolean allBirdsGone = entityManager.areAllBirdsGone();
+
+            if (bossManager.shouldSpawnBoss(currentTime)) {
+                if (allBirdsGone) {
+                    bossManager.spawnBoss();
+                } else {
+                    bossManager.setWaitingForBirdsToClear(true);
+                }
+            } else if (bossManager.isWaitingForBirdsToClear() && allBirdsGone) {
+                bossManager.spawnBoss();
+            }
         }
 
         bossManager.update(deltaTime, screenX, screenY, getResources());
@@ -226,14 +240,28 @@ public class GameView extends SurfaceView implements Runnable {
 
         if (bulletHit) gameState.score++;
 
-        if (collisionManager.checkBirdCollision(entityManager.getBirds(), flight, screenY) ||
-                collisionManager.checkBombCollision(entityManager.getBomb(), flight) ||
-                collisionManager.checkBossCollisions(
-                        entityManager.getBossManager().getBoss(),
-                        entityManager.getBossManager().getRockets(),
-                        flight)) {
-            gameOver();
-            return;
+        // Level 3: Only check boss collisions
+        if (gameState.currentLevel == 3) {
+            if (collisionManager.checkBossCollisions(
+                    entityManager.getBossManager().getBoss(),
+                    entityManager.getBossManager().getRockets(),
+                    entityManager.getBossManager().getBossBullets(),
+                    flight)) {
+                gameOver();
+                return;
+            }
+        } else {
+            // Level 1 & 2: Check all collisions
+            if (collisionManager.checkBirdCollision(entityManager.getBirds(), flight, screenY) ||
+                    collisionManager.checkBombCollision(entityManager.getBomb(), flight) ||
+                    collisionManager.checkBossCollisions(
+                            entityManager.getBossManager().getBoss(),
+                            entityManager.getBossManager().getRockets(),
+                            entityManager.getBossManager().getBossBullets(),
+                            flight)) {
+                gameOver();
+                return;
+            }
         }
 
         int coinsCollected = collisionManager.checkCoinCollisions(entityManager.getCoins(), flight);
@@ -254,14 +282,25 @@ public class GameView extends SurfaceView implements Runnable {
         if (!gameState.hasShownWinScreen && bossDefeatedThisSession) {
             gameState.isWin = true;
             gameState.hasShownWinScreen = true;
-            scoreManager.saveHighScores(gameState.score, gameState.gameTime);
+
+            if (gameState.currentLevel == 3) {
+                // Level 3: Clear all high scores on win
+                scoreManager.clearAllHighScores();
+            } else {
+                scoreManager.saveHighScores(gameState.score, gameState.gameTime);
+            }
         }
     }
 
     private void gameOver() {
         gameState.isGameOver = true;
         gameState.isWin = false;
-        scoreManager.saveHighScores(gameState.score, gameState.gameTime);
+
+        if (gameState.currentLevel == 3) {
+            // Level 3: Don't save score on loss
+        } else {
+            scoreManager.saveHighScores(gameState.score, gameState.gameTime);
+        }
     }
 
     private void draw() {
@@ -282,7 +321,11 @@ public class GameView extends SurfaceView implements Runnable {
                 gameOverScreen.draw(canvas, gameState.score, gameOverBitmap,
                         flight.x, flight.y, renderer.getPaint(), canResume);
             } else if (gameState.isWin) {
-                gameWinScreen.draw(canvas, scoreManager.getHighScores(), renderer.getPaint());
+                if (gameState.currentLevel == 3) {
+                    gameWinScreen.draw(canvas, scoreManager.getHighScores(), renderer.getPaint(), true);
+                } else {
+                    gameWinScreen.draw(canvas, scoreManager.getHighScores(), renderer.getPaint(), false);
+                }
             }
 
             if (volumeButton != null) {
@@ -431,7 +474,12 @@ public class GameView extends SurfaceView implements Runnable {
     }
 
     private void nextLevel() {
-        activity.startLevel2();
+        int nextLevel = gameState.currentLevel + 1;
+        if (nextLevel <= 3) {
+            activity.startLevel(nextLevel);
+        } else {
+            activity.finish();
+        }
     }
 
     private void resetGame() {

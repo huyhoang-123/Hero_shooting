@@ -98,6 +98,15 @@ public class ScoreManager {
         prefs.edit().putString(getHighScoresKey(), sb.toString()).apply();
     }
 
+    public void clearAllHighScores() {
+        prefs.edit()
+                .remove(getHighScoreKey())
+                .remove(getHighScoreTimeKey())
+                .remove(getHighScoresKey())
+                .apply();
+        highScores = new ArrayList<>();
+    }
+
     public void loadHighScores() {
         String scoresStr = prefs.getString(getHighScoresKey(), "");
         highScores = new ArrayList<>();

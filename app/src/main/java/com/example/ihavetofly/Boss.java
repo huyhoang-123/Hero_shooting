@@ -12,21 +12,27 @@ public class Boss {
     public boolean isExploding = false;
     public long spawnTime;
     public long explodeTime;
+    public int level = 1;
 
     private static Bitmap bossBitmap;
     private static Bitmap bossExplodeBitmap;
+    private static Bitmap bossLv3Bitmap;
     private static final int MOVE_SPEED = 300;
     private static final int REQUIRED_HITS = 100;
-    private static final long EXPLODE_ANIMATION_DURATION = 1000; // 1 second
+    private static final long EXPLODE_ANIMATION_DURATION = 1000;
 
     private boolean movingRight = true;
     private final Rect collisionRect = new Rect();
     private int hitCount = 0;
+    private final int screenX, screenY;
 
     public Boss(Resources res, int screenX, int screenY) {
+        this.screenX = screenX;
+        this.screenY = screenY;
+
         if (bossBitmap == null) {
             Bitmap bmp = BitmapCache.get(res, R.drawable.boss, 1);
-            int w = screenX / 2; // Boss size
+            int w = screenX / 2;
             int h = bmp.getHeight() * w / bmp.getWidth();
             bossBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
         }
@@ -38,17 +44,28 @@ public class Boss {
             bossExplodeBitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
         }
 
+        if (bossLv3Bitmap == null) {
+            Bitmap bmp = BitmapCache.get(res, R.drawable.boss_lv3, 1);
+            int w = screenX / 2;
+            int h = bmp.getHeight() * w / bmp.getWidth();
+            bossLv3Bitmap = Bitmap.createScaledBitmap(bmp, w, h, true);
+        }
+
         width = bossBitmap.getWidth();
         height = bossBitmap.getHeight();
-        y = screenY / 6; // 2/3 from top means 1/3 down
+        y = screenY / 6;
         x = -width;
+    }
+
+    public void setLevel(int level) {
+        this.level = level;
     }
 
     public void spawn() {
         active = true;
         isExploding = false;
         spawnTime = System.currentTimeMillis();
-        x = 0; // Start from left edge
+        x = 0;
         movingRight = true;
         hitCount = 0;
     }
@@ -58,7 +75,6 @@ public class Boss {
 
         long currentTime = System.currentTimeMillis();
 
-        // Handle explode animation
         if (isExploding) {
             if (currentTime - explodeTime >= EXPLODE_ANIMATION_DURATION) {
                 clear();
@@ -66,7 +82,6 @@ public class Boss {
             return;
         }
 
-        // Move boss left and right
         if (movingRight) {
             x += (int) (MOVE_SPEED * deltaTime);
             if (x + width >= screenX) {
@@ -117,11 +132,14 @@ public class Boss {
     }
 
     public Bitmap getBitmap() {
-        return isExploding ? bossExplodeBitmap : bossBitmap;
+        if (isExploding) {
+            return bossExplodeBitmap;
+        }
+        return (level == 3) ? bossLv3Bitmap : bossBitmap;
     }
 
     public boolean shouldShootRocket(long currentTime, long lastRocketTime) {
-        return !isExploding && (currentTime - lastRocketTime >= 2000); // Shoot every 2 seconds
+        return !isExploding && (currentTime - lastRocketTime >= 2000);
     }
 
     public static void clearCache() {
@@ -132,6 +150,10 @@ public class Boss {
         if (bossExplodeBitmap != null && !bossExplodeBitmap.isRecycled()) {
             bossExplodeBitmap.recycle();
             bossExplodeBitmap = null;
+        }
+        if (bossLv3Bitmap != null && !bossLv3Bitmap.isRecycled()) {
+            bossLv3Bitmap.recycle();
+            bossLv3Bitmap = null;
         }
     }
 }

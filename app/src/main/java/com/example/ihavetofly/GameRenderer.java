@@ -65,8 +65,9 @@ public class GameRenderer {
             }
         }
 
+        // FIXED: Draw bomb
         Bomb bomb = entityManager.getBomb();
-        if (bomb.active) {
+        if (bomb != null && bomb.active) {
             Bitmap bombBmp = bomb.getBitmap();
             if (bombBmp != null && !bombBmp.isRecycled()) {
                 canvas.drawBitmap(bombBmp, bomb.x, bomb.y, paint);
@@ -89,7 +90,7 @@ public class GameRenderer {
         }
 
         Boss boss = entityManager.getBossManager().getBoss();
-        if (boss.active) {
+        if (boss != null && boss.active) {
             Bitmap bossBmp = boss.getBitmap();
             if (bossBmp != null && !bossBmp.isRecycled()) {
                 canvas.drawBitmap(bossBmp, boss.x, boss.y, paint);
@@ -104,10 +105,19 @@ public class GameRenderer {
                 }
             }
         }
+
+        for (BossBullet bullet : entityManager.getBossManager().getBossBullets()) {
+            if (bullet.active) {
+                Bitmap bulletBmp = bullet.getBitmap();
+                if (bulletBmp != null && !bulletBmp.isRecycled()) {
+                    canvas.drawBitmap(bulletBmp, bullet.x, bullet.y, paint);
+                }
+            }
+        }
     }
 
     private void drawBossUI(Canvas canvas, Boss boss) {
-        if (!boss.active || boss.isExploding) return;
+        if (boss == null || !boss.active || boss.isExploding) return;
 
         int barWidth = canvas.getWidth() - 100;
         int barHeight = 30;
