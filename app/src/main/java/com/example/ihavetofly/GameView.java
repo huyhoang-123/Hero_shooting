@@ -43,6 +43,9 @@ public class GameView extends SurfaceView implements Runnable {
     private Paint gameplayTextPaint;
 
     private boolean bossDefeatedThisSession = false;
+    private AIController aiController;
+    private long lastUserInputTime = 0;
+    private static final long AI_ACTIVATION_DELAY = 3000; // 3 seconds of no input
 
     public GameView(GameActivity activity, int screenX, int screenY) {
         super(activity);
@@ -69,6 +72,7 @@ public class GameView extends SurfaceView implements Runnable {
 
         gameState.sessionStartHighScore = scoreManager.getSessionStartHighScore();
         totalCoinsCollected = prefs.getInt("total_coins", 0);
+        aiController = new AIController(flight, entityManager, screenX, screenY);
 
         initIcons();
         initPaints();
@@ -174,6 +178,14 @@ public class GameView extends SurfaceView implements Runnable {
         if (deltaTime <= 0f) deltaTime = 1f / 60f;
         if (deltaTime > 0.05f) deltaTime = 0.05f;
         lastFrameTime = currentTime;
+
+        // AI activation logic
+        updateAIState(currentTime);
+
+        // Update AI if active
+        if (aiController.isAIActive()) {
+            aiController.update(currentTime);
+        }
 
         flight.updatePosition(deltaTime);
         background.update(deltaTime * gameState.speedMultiplier);
@@ -408,6 +420,18 @@ public class GameView extends SurfaceView implements Runnable {
                 coinX + iconSize + 15,
                 textBaseY,
                 gameplayTextPaint);
+
+        // AI Status Indicator
+        if (aiController.isAIActive()) {
+            gameplayTextPaint.setTextSize(screenY * 0.025f);
+            gameplayTextPaint.setColor(0xFF00FF00); // Green
+            gameplayTextPaint.setTextAlign(Paint.Align.LEFT);
+            canvas.drawText("🤖 AI: " + aiController.getCurrentState(),
+                    leftPadding,
+                    topMargin + iconSize + 30,
+                    gameplayTextPaint);
+            gameplayTextPaint.setColor(Color.WHITE); // Reset color
+        }
     }
 
     @Override
@@ -445,11 +469,37 @@ public class GameView extends SurfaceView implements Runnable {
         }
         return true;
     }
+    // Add this new method:
+    private void updateAIState(long currentTime) {
+        // Check if user is actively controlling
+        boolean userIsControlling = flight.movingLeft || flight.movingRight ||
+                flight.movingUp || flight.movingDown;
+
+        if (userIsControlling) {
+            lastUserInputTime = currentTime;
+            if (aiController.isAIActive()) {
+                aiController.setAIActive(false);
+            }
+        } else {
+            // Activate AI after delay
+            if (currentTime - lastUserInputTime >= AI_ACTIVATION_DELAY) {
+                if (!aiController.isAIActive()) {
+                    aiController.setAIActive(true);
+                }
+            }
+        }
+    }
 
     private void handleGameplayTouch(MotionEvent event) {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_MOVE:
+                // User is controlling - deactivate AI
+                lastUserInputTime = System.currentTimeMillis();
+                if (aiController.isAIActive()) {
+                    aiController.setAIActive(false);
+                }
+
                 flight.movingLeft = event.getX() < screenX / 2;
                 flight.movingRight = event.getX() > screenX / 2;
                 flight.movingUp = event.getY() < screenY / 2;
@@ -458,6 +508,7 @@ public class GameView extends SurfaceView implements Runnable {
             case MotionEvent.ACTION_UP:
                 flight.movingLeft = flight.movingRight =
                         flight.movingUp = flight.movingDown = false;
+                lastUserInputTime = System.currentTimeMillis();
                 break;
         }
     }
@@ -512,6 +563,10 @@ public class GameView extends SurfaceView implements Runnable {
         gameState.sessionStartHighScore = scoreManager.getSessionStartHighScore();
         bossDefeatedThisSession = false;
         lastFrameTime = System.currentTimeMillis();
+
+        // Reset AI
+        lastUserInputTime = System.currentTimeMillis();
+        aiController.setAIActive(false);
 
         if (thread == null || !thread.isAlive()) {
             thread = new Thread(this);
