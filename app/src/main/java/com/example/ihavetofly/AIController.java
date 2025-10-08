@@ -6,20 +6,19 @@ import java.util.List;
 public class AIController {
 
     private Flight flight;
-    private EntityManager entityManager;
-    private int screenX, screenY;
+    private EntityManager entityManager;private int screenX, screenY;
 
     private boolean isAIActive = false;
-    private long lastDecisionTime = 0;
-    private static final long DECISION_INTERVAL = 100; // AI decides every 100ms
 
-    // AI behavior settings
-    private static final float DANGER_ZONE_MULTIPLIER = 2.0f;
+    private static final float DANGER_ZONE_MULTIPLIER = 2f;
     private static final int SAFE_MARGIN = 50;
-    private static final int TARGET_Y_POSITION = 200; // Preferred Y position from bottom
+    private static final int TARGET_Y_POSITION = 200;
+    private static final float PREDICTION_TIME = 0.5f;
 
     private AITarget currentTarget = null;
     private AIState currentState = AIState.IDLE;
+    private long targetSetTime = 0;
+    private static final long TARGET_RECONSIDER_TIME = 50;
 
     private enum AIState {
         IDLE,
@@ -31,7 +30,7 @@ public class AIController {
 
     private static class AITarget {
         float x, y;
-        int priority; // Higher = more important
+        int priority;
         AIState targetType;
 
         AITarget(float x, float y, int priority, AIState type) {
@@ -63,78 +62,72 @@ public class AIController {
     public void update(long currentTime) {
         if (!isAIActive) return;
 
-        // Make decisions at intervals
-        if (currentTime - lastDecisionTime >= DECISION_INTERVAL) {
-            makeDecision();
-            lastDecisionTime = currentTime;
-        }
+        makeDecision(currentTime);
 
-        // Execute current target movement
         if (currentTarget != null) {
             moveTowardsTarget();
         }
     }
 
-    private void makeDecision() {
-        // Priority 1: Avoid immediate dangers
+    private void makeDecision(long currentTime) {
+        boolean shouldReconsider = (currentTime - targetSetTime) >= TARGET_RECONSIDER_TIME;
+
         AITarget dangerTarget = findNearestDanger();
-        if (dangerTarget != null) {
-            currentTarget = dangerTarget;
-            currentState = AIState.AVOIDING_DANGER;
+        if (dangerTarget != null && (shouldReconsider || currentState != AIState.AVOIDING_DANGER)) {
+            setNewTarget(dangerTarget, currentTime);
             return;
         }
 
-        // Priority 2: Collect power-ups (shield is highest priority)
+        if (currentTarget != null && !shouldReconsider && currentState == AIState.AVOIDING_DANGER) {
+            return;
+        }
+
         AITarget powerUpTarget = findNearestPowerUp();
         if (powerUpTarget != null && powerUpTarget.priority >= 8) {
-            currentTarget = powerUpTarget;
-            currentState = AIState.COLLECTING_ITEM;
+            setNewTarget(powerUpTarget, currentTime);
             return;
         }
 
-        // Priority 3: Collect coins
         AITarget coinTarget = findNearestCoin();
-        if (coinTarget != null) {
-            currentTarget = coinTarget;
-            currentState = AIState.COLLECTING_ITEM;
+        if (coinTarget != null && (currentState != AIState.COLLECTING_ITEM || shouldReconsider)) {
+            setNewTarget(coinTarget, currentTime);
             return;
         }
 
-        // Priority 4: Lower priority power-ups
-        if (powerUpTarget != null) {
-            currentTarget = powerUpTarget;
-            currentState = AIState.COLLECTING_ITEM;
+        if (powerUpTarget != null && (currentState != AIState.COLLECTING_ITEM || shouldReconsider)) {
+            setNewTarget(powerUpTarget, currentTime);
             return;
         }
 
-        // Priority 5: Position for optimal shooting
         AITarget optimalPosition = getOptimalShootingPosition();
-        if (optimalPosition != null) {
-            currentTarget = optimalPosition;
-            currentState = AIState.REPOSITIONING;
+        if (optimalPosition != null && shouldReconsider) {
+            setNewTarget(optimalPosition, currentTime);
             return;
         }
 
-        currentState = AIState.IDLE;
-        currentTarget = null;
+        if (currentTarget == null) {
+            currentState = AIState.IDLE;
+        }
+    }
+
+    private void setNewTarget(AITarget target, long currentTime) {
+        currentTarget = target;
+        currentState = target.targetType;
+        targetSetTime = currentTime;
     }
 
     private AITarget findNearestDanger() {
         AITarget nearest = null;
         float minDangerScore = Float.MAX_VALUE;
 
-        Rect flightRect = new Rect(flight.x, flight.y,
-                flight.x + flight.width, flight.y + flight.height);
+        float flightCenterX = flight.x + flight.width / 2f;
+        float flightCenterY = flight.y + flight.height / 2f;
 
-        // Check birds
         for (Bird bird : entityManager.getBirds()) {
             if (bird.wasShot) continue;
 
-            float distance = getDistance(flight.x + flight.width / 2f,
-                    flight.y + flight.height / 2f,
-                    bird.x + bird.width / 2f,
-                    bird.y + bird.height / 2f);
-
+            float predictedY = bird.y + bird.speed * PREDICTION_TIME;
+            float distance = getDistance(flightCenterX, flightCenterY, bird.x + bird.width / 2f, predictedY);
             float dangerZone = (bird.width + bird.height) * DANGER_ZONE_MULTIPLIER;
 
             if (distance < dangerZone && bird.y < screenY) {
@@ -142,81 +135,74 @@ public class AIController {
 
                 if (dangerScore < minDangerScore) {
                     minDangerScore = dangerScore;
-                    // Move away from bird
-                    float escapeX = flight.x + flight.width / 2f;
-                    float escapeY = flight.y + flight.height / 2f;
 
-                    if (bird.x > flight.x) {
-                        escapeX = Math.max(SAFE_MARGIN, flight.x - 150);
+                    float escapeX = flightCenterX;
+                    float escapeY = flightCenterY;
+
+                    if (bird.x + bird.width / 2f > flightCenterX) {
+                        escapeX = Math.max(SAFE_MARGIN + flight.width / 2f, flightCenterX - 200);
                     } else {
-                        escapeX = Math.min(screenX - SAFE_MARGIN, flight.x + 150);
+                        escapeX = Math.min(screenX - SAFE_MARGIN - flight.width / 2f, flightCenterX + 200);
                     }
 
-                    if (bird.y > flight.y) {
-                        escapeY = Math.max(SAFE_MARGIN, flight.y - 100);
+                    if (predictedY > flightCenterY) {
+                        escapeY = Math.max(SAFE_MARGIN + flight.height / 2f, flightCenterY - 150);
+                    } else {
+                        escapeY = Math.min(screenY - SAFE_MARGIN - flight.height / 2f, flightCenterY + 100);
                     }
 
-                    nearest = new AITarget(escapeX, escapeY, 10, AIState.AVOIDING_DANGER);
+                    nearest = new AITarget(escapeX - flight.width / 2f, escapeY - flight.height / 2f, 10, AIState.AVOIDING_DANGER);
                 }
             }
         }
 
-        // Check bomb
         Bomb bomb = entityManager.getBomb();
         if (bomb.active) {
-            float distance = getDistance(flight.x + flight.width / 2f,
-                    flight.y + flight.height / 2f,
-                    bomb.x + bomb.width / 2f,
-                    bomb.y + bomb.height / 2f);
-
+            float distance = getDistance(flightCenterX, flightCenterY, bomb.x + bomb.width / 2f, bomb.y + bomb.height / 2f);
             float dangerZone = (bomb.width + bomb.height) * DANGER_ZONE_MULTIPLIER;
 
             if (distance < dangerZone) {
                 float escapeX = (bomb.x > flight.x)
-                        ? Math.max(SAFE_MARGIN, flight.x - 200)
-                        : Math.min(screenX - SAFE_MARGIN - flight.width, flight.x + 200);
+                        ? Math.max(SAFE_MARGIN, flight.x - 250)
+                        : Math.min(screenX - SAFE_MARGIN - flight.width, flight.x + 250);
 
-                nearest = new AITarget(escapeX, flight.y, 10, AIState.AVOIDING_DANGER);
+                if (nearest == null || dangerZone > minDangerScore) {
+                    nearest = new AITarget(escapeX, flight.y, 10, AIState.AVOIDING_DANGER);
+                }
             }
         }
 
-        // Check boss rockets
         for (Rocket rocket : entityManager.getBossManager().getRockets()) {
             if (!rocket.active) continue;
 
-            float distance = getDistance(flight.x + flight.width / 2f,
-                    flight.y + flight.height / 2f,
-                    rocket.x + rocket.width / 2f,
-                    rocket.y + rocket.height / 2f);
-
+            float distance = getDistance(flightCenterX, flightCenterY, rocket.x + rocket.width / 2f, rocket.y + rocket.height / 2f);
             float dangerZone = (rocket.width + rocket.height) * DANGER_ZONE_MULTIPLIER;
 
             if (distance < dangerZone) {
                 float escapeX = (rocket.x > flight.x)
-                        ? Math.max(SAFE_MARGIN, flight.x - 150)
-                        : Math.min(screenX - SAFE_MARGIN - flight.width, flight.x + 150);
+                        ? Math.max(SAFE_MARGIN, flight.x - 180)
+                        : Math.min(screenX - SAFE_MARGIN - flight.width, flight.x + 180);
 
-                nearest = new AITarget(escapeX, flight.y, 10, AIState.AVOIDING_DANGER);
+                if (nearest == null) {
+                    nearest = new AITarget(escapeX, flight.y, 10, AIState.AVOIDING_DANGER);
+                }
             }
         }
 
-        // Check boss bullets
         for (BossBullet bullet : entityManager.getBossManager().getBossBullets()) {
             if (!bullet.active) continue;
 
-            float distance = getDistance(flight.x + flight.width / 2f,
-                    flight.y + flight.height / 2f,
-                    bullet.x + bullet.width / 2f,
-                    bullet.y + bullet.height / 2f);
-
+            float distance = getDistance(flightCenterX, flightCenterY, bullet.x + bullet.width / 2f, bullet.y + bullet.height / 2f);
             float dangerZone = (bullet.width + bullet.height) * DANGER_ZONE_MULTIPLIER;
 
             if (distance < dangerZone) {
                 float escapeX = (bullet.x > flight.x)
-                        ? Math.max(SAFE_MARGIN, flight.x - 150)
-                        : Math.min(screenX - SAFE_MARGIN - flight.width, flight.x + 150);
+                        ? Math.max(SAFE_MARGIN, flight.x - 160)
+                        : Math.min(screenX - SAFE_MARGIN - flight.width, flight.x + 160);
 
-                nearest = new AITarget(escapeX, flight.y, 10, AIState.AVOIDING_DANGER);
+                if (nearest == null) {
+                    nearest = new AITarget(escapeX, flight.y, 10, AIState.AVOIDING_DANGER);
+                }
             }
         }
 
@@ -226,17 +212,15 @@ public class AIController {
     private AITarget findNearestPowerUp() {
         AITarget nearest = null;
         float minDistance = Float.MAX_VALUE;
+        float flightCenterX = flight.x + flight.width / 2f;
+        float flightCenterY = flight.y + flight.height / 2f;
 
         for (PowerUp powerUp : entityManager.getPowerUps()) {
             if (!powerUp.active) continue;
 
-            float distance = getDistance(flight.x + flight.width / 2f,
-                    flight.y + flight.height / 2f,
-                    powerUp.x + powerUp.width / 2f,
-                    powerUp.y + powerUp.height / 2f);
+            float distance = getDistance(flightCenterX, flightCenterY, powerUp.x + powerUp.width / 2f, powerUp.y + powerUp.height / 2f);
 
-            // Only consider if reachable
-            if (distance < screenY / 2f && distance < minDistance) {
+            if (distance < screenY * 0.6f && distance < minDistance) {
                 minDistance = distance;
                 int priority = getPowerUpPriority(powerUp.type);
                 nearest = new AITarget(
@@ -254,11 +238,11 @@ public class AIController {
     private int getPowerUpPriority(int type) {
         switch (type) {
             case PowerUp.TYPE_SHIELD:
-                return flight.hasShield() ? 3 : 9; // High priority if don't have shield
+                return flight.hasShield() ? 3 : 9;
             case PowerUp.TYPE_KUNAI:
-                return flight.hasKunai() ? 2 : 6;
+                return flight.hasKunai() ? 3 : 7;
             case PowerUp.TYPE_DOUBLE_BULLET:
-                return flight.hasDoubleBullet() ? 2 : 5;
+                return flight.hasDoubleBullet() ? 3 : 6;
             default:
                 return 3;
         }
@@ -267,22 +251,20 @@ public class AIController {
     private AITarget findNearestCoin() {
         AITarget nearest = null;
         float minDistance = Float.MAX_VALUE;
+        float flightCenterX = flight.x + flight.width / 2f;
+        float flightCenterY = flight.y + flight.height / 2f;
 
         for (Coin coin : entityManager.getCoins()) {
             if (!coin.active) continue;
 
-            float distance = getDistance(flight.x + flight.width / 2f,
-                    flight.y + flight.height / 2f,
-                    coin.x + coin.width / 2f,
-                    coin.y + coin.height / 2f);
+            float distance = getDistance(flightCenterX, flightCenterY, coin.x + coin.width / 2f, coin.y + coin.height / 2f);
 
-            // Only consider coins that are reachable
-            if (distance < screenY / 3f && distance < minDistance) {
+            if (distance < screenY * 0.4f && distance < minDistance) {
                 minDistance = distance;
                 nearest = new AITarget(
                         coin.x + coin.width / 2f - flight.width / 2f,
                         coin.y + coin.height / 2f - flight.height / 2f,
-                        4,
+                        5,
                         AIState.COLLECTING_ITEM
                 );
             }
@@ -292,7 +274,6 @@ public class AIController {
     }
 
     private AITarget getOptimalShootingPosition() {
-        // Find enemy with lowest Y (closest to top, best to shoot)
         Bird targetBird = null;
         float lowestY = Float.MAX_VALUE;
 
@@ -303,32 +284,27 @@ public class AIController {
             }
         }
 
-        // Position under the target
         if (targetBird != null) {
             float targetX = targetBird.x + targetBird.width / 2f - flight.width / 2f;
             targetX = Math.max(SAFE_MARGIN, Math.min(screenX - flight.width - SAFE_MARGIN, targetX));
-
             float targetY = screenY - flight.height - TARGET_Y_POSITION;
 
-            return new AITarget(targetX, targetY, 3, AIState.ATTACKING_ENEMY);
+            return new AITarget(targetX, targetY, 4, AIState.ATTACKING_ENEMY);
         }
 
-        // Check boss
         Boss boss = entityManager.getBossManager().getBoss();
         if (boss.active && !boss.isExploding) {
             float targetX = boss.x + boss.width / 2f - flight.width / 2f;
             targetX = Math.max(SAFE_MARGIN, Math.min(screenX - flight.width - SAFE_MARGIN, targetX));
-
             float targetY = screenY - flight.height - TARGET_Y_POSITION;
 
             return new AITarget(targetX, targetY, 7, AIState.ATTACKING_ENEMY);
         }
 
-        // Default: center bottom
         return new AITarget(
                 screenX / 2f - flight.width / 2f,
                 screenY - flight.height - TARGET_Y_POSITION,
-                1,
+                2,
                 AIState.REPOSITIONING
         );
     }
@@ -342,15 +318,13 @@ public class AIController {
         float dx = currentTarget.x + flight.width / 2f - currentX;
         float dy = currentTarget.y + flight.height / 2f - currentY;
 
-        float threshold = 20; // Pixels threshold to consider "reached"
+        float threshold = 15;
 
-        // Reset all movement
         flight.movingLeft = false;
         flight.movingRight = false;
         flight.movingUp = false;
         flight.movingDown = false;
 
-        // Set movement directions
         if (Math.abs(dx) > threshold) {
             if (dx < 0) {
                 flight.movingLeft = true;
@@ -367,7 +341,6 @@ public class AIController {
             }
         }
 
-        // Clear target if reached
         if (Math.abs(dx) <= threshold && Math.abs(dy) <= threshold) {
             currentTarget = null;
         }

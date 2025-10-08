@@ -70,7 +70,7 @@ public class BossBullet {
             // Scale to target size
             Bitmap scaledFrame = Bitmap.createScaledBitmap(frame, targetWidth, targetHeight, true);
 
-            // Rotate 90 degrees clockwise to make it vertical (pointing down)
+            // Rotate 270 degrees clockwise to make it vertical (pointing down)
             Matrix matrix = new Matrix();
             matrix.postRotate(270);
             bulletFrames[i] = Bitmap.createBitmap(scaledFrame, 0, 0,

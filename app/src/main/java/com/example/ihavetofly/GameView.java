@@ -143,24 +143,24 @@ public class GameView extends SurfaceView implements Runnable {
     }
 
     @Override
-    public void run() {
-        lastFrameTime = System.currentTimeMillis();
-        while (gameState.isPlaying) {
-            long startTimeLoop = System.currentTimeMillis();
-            update();
-            draw();
+    public void run() { // Phương thức chính của luồng game (Game Loop).
+        lastFrameTime = System.currentTimeMillis(); // Khởi tạo thời gian khung hình cuối.
+        while (gameState.isPlaying) { // Vòng lặp chạy khi cờ isPlaying là true.
+            long startTimeLoop = System.currentTimeMillis(); // Ghi lại thời gian bắt đầu vòng lặp.
+            update(); // Cập nhật logic game.
+            draw(); // Vẽ lại màn hình.
 
-            long targetFrameTime = (gameState.isGameOver || gameState.isWin)
-                    ? 100
-                    : GameConfig.FRAME_TIME;
+            long targetFrameTime = (gameState.isGameOver || gameState.isWin) // Tính thời gian mong muốn cho 1 khung hình.
+                    ? 100 // Nếu Game Over hoặc Win, tốc độ khung hình chậm lại (10 khung hình/giây).
+                    : GameConfig.FRAME_TIME; // Ngược lại, dùng tốc độ chuẩn (ví dụ: 60 khung hình/giây).
 
-            long frameTime = System.currentTimeMillis() - startTimeLoop;
-            if (frameTime < targetFrameTime) {
+            long frameTime = System.currentTimeMillis() - startTimeLoop; // Tính thời gian đã mất cho việc update và draw.
+            if (frameTime < targetFrameTime) { // Nếu thời gian vẽ nhanh hơn thời gian mục tiêu.
                 try {
-                    Thread.sleep(targetFrameTime - frameTime);
+                    Thread.sleep(targetFrameTime - frameTime); // Cho luồng ngủ để đạt tốc độ khung hình mong muốn.
                 } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
+                    Thread.currentThread().interrupt(); // Xử lý lỗi khi luồng bị gián đoạn.
+                    break; // Thoát vòng lặp.
                 }
             }
         }

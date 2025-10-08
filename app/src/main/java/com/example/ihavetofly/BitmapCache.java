@@ -8,10 +8,6 @@ import java.util.HashMap;
 public class BitmapCache {
     private static final HashMap<Integer, Bitmap> cache = new HashMap<>();
 
-    /**
-     * Lấy bitmap từ cache nếu có, nếu chưa có -> decode và lưu vào cache.
-     * sampleSize tương tự inSampleSize (1 = full, 2 = giảm 2 lần...)
-     */
     public static Bitmap get(Resources res, int resId, int sampleSize) {
         Bitmap bmp = cache.get(resId);
         if (bmp != null && !bmp.isRecycled()) {
@@ -29,9 +25,6 @@ public class BitmapCache {
         return bmp;
     }
 
-    /**
-     * Giải phóng tất cả bitmap trong cache (gọi khi cần clear memory, ví dụ onDestroy của GameActivity).
-     */
     public static void clear() {
         for (Bitmap b : cache.values()) {
             if (b != null && !b.isRecycled()) {
